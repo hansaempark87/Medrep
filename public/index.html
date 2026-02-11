@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>MedRep Intelligence - AI-Powered Pharma Sales Intelligence</title>
-<meta name="description" content="제약영업 팀장의 12년 실전 노하우를 AI로 구현한 KOL 인텔리전스 플랫폼"/>
+<meta name="description" content="AI 기반 제약 영업 인텔리전스 플랫폼 — KOL 분석, P&T 전략, 경쟁사 인사이트"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -176,8 +176,8 @@ function Sidebar({ currentPage, setCurrentPage, sidebarOpen, setSidebarOpen }) {
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-cyan-300 flex items-center justify-center text-primary-900 font-bold text-sm">TL</div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate">팀장님</p>
-              <p className="text-[11px] text-blue-300/60">내분비대사 팀</p>
+              <p className="text-sm font-semibold truncate">사용자</p>
+              <p className="text-[11px] text-blue-300/60">영업전략팀</p>
             </div>
             <div className="w-2 h-2 bg-green-400 rounded-full"></div>
           </div>
@@ -383,7 +383,7 @@ function KOLIntelligence({ initialQuery }) {
       { text: 'PubMed 논문 데이터 기반 연구 트렌드 분석...', delay: 2000 },
       { text: '학회 발표 이력 및 처방 패턴 분석 중...', delay: 5000 },
       { text: '경쟁사 포지셔닝 및 접근 전략 생성 중...', delay: 9000 },
-      { text: '12년차 영업 팀장 관점의 인텔리전스 리포트 생성...', delay: 14000 }
+      { text: '맞춤형 인텔리전스 리포트 생성 중...', delay: 14000 }
     ];
     steps.forEach((step) => {
       setTimeout(() => setLoadingSteps(prev => [...prev, step.text]), step.delay);
@@ -482,7 +482,7 @@ function KOLIntelligence({ initialQuery }) {
               <div className="w-2.5 h-2.5 rounded-full bg-primary-300 animate-bounce" style={{animationDelay:'300ms'}}></div>
             </div>
             <h3 className="text-lg font-bold text-gray-800 text-center mb-1">AI가 분석 중입니다</h3>
-            <p className="text-xs text-gray-400 text-center mb-6">OpenAI GPT가 12년차 영업 팀장의 관점으로 분석하고 있습니다</p>
+            <p className="text-xs text-gray-400 text-center mb-6">OpenAI GPT가 제약 영업 전문가 관점으로 분석하고 있습니다</p>
             <div className="w-full h-1.5 bg-surface-100 rounded-full overflow-hidden mb-5">
               <div className="h-full bg-gradient-to-r from-primary-500 to-blue-400 rounded-full progress-animate"></div>
             </div>
@@ -546,12 +546,34 @@ function KOLIntelligence({ initialQuery }) {
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3 lg:gap-4 mt-4 lg:mt-5">
-                {[{label:'영향력 지수',val:selectedKOL.influence,color:'bg-blue-500'},{label:'접근성',val:selectedKOL.accessibility,color:'bg-green-500'},{label:'처방 영향력',val:selectedKOL.prescriptionPower,color:'bg-purple-500'}].map((m,i) => (
-                  <div key={i} className="bg-surface-50 rounded-xl p-2.5 lg:p-3">
-                    <div className="flex items-center justify-between mb-1.5 lg:mb-2"><span className="text-[10px] lg:text-xs text-gray-500">{m.label}</span><span className="text-xs lg:text-sm font-bold text-gray-800">{m.val || 0}/100</span></div>
-                    <div className="h-1.5 lg:h-2 bg-surface-200 rounded-full overflow-hidden"><div className={`h-full rounded-full ${m.color} transition-all duration-1000`} style={{ width:`${m.val || 0}%` }}></div></div>
-                  </div>
-                ))}
+                {/* KOL Tier */}
+                <div className="bg-surface-50 rounded-xl p-2.5 lg:p-3">
+                  <div className="flex items-center justify-between mb-1.5 lg:mb-2"><span className="text-[10px] lg:text-xs text-gray-500">KOL Tier</span></div>
+                  {(() => {
+                    const inf = selectedKOL.influence || 0;
+                    const tier = inf >= 85 ? { label:'Tier A', desc:'Global / National KOL', color:'bg-purple-600', textColor:'text-purple-600', bgColor:'bg-purple-50' } : inf >= 65 ? { label:'Tier B', desc:'Regional KOL', color:'bg-blue-500', textColor:'text-blue-600', bgColor:'bg-blue-50' } : inf >= 40 ? { label:'Tier C', desc:'Local KOL', color:'bg-teal-500', textColor:'text-teal-600', bgColor:'bg-teal-50' } : { label:'Tier D', desc:'Emerging Expert', color:'bg-gray-400', textColor:'text-gray-500', bgColor:'bg-gray-50' };
+                    return (<div className="text-center"><span className={`inline-block text-sm lg:text-base font-black ${tier.textColor}`}>{tier.label}</span><p className="text-[9px] lg:text-[10px] text-gray-400 mt-0.5">{tier.desc}</p></div>);
+                  })()}
+                </div>
+                {/* Persona */}
+                <div className="bg-surface-50 rounded-xl p-2.5 lg:p-3">
+                  <div className="flex items-center justify-between mb-1.5 lg:mb-2"><span className="text-[10px] lg:text-xs text-gray-500">Persona</span></div>
+                  {(() => {
+                    const persona = selectedKOL.persona || (selectedKOL.influence >= 80 ? 'Champion' : selectedKOL.influence >= 60 ? 'Advocate' : selectedKOL.influence >= 40 ? 'Supporter' : 'Neutral');
+                    const map = { 'Champion':{ icon:'fa-crown', color:'text-yellow-600', bg:'bg-yellow-50' }, 'Advocate':{ icon:'fa-bullhorn', color:'text-blue-600', bg:'bg-blue-50' }, 'Supporter':{ icon:'fa-thumbs-up', color:'text-green-600', bg:'bg-green-50' }, 'Neutral':{ icon:'fa-minus-circle', color:'text-gray-500', bg:'bg-gray-50' }, 'Non-Adopter':{ icon:'fa-ban', color:'text-red-500', bg:'bg-red-50' } };
+                    const p = map[persona] || map['Neutral'];
+                    return (<div className="text-center"><i className={`fas ${p.icon} ${p.color} text-sm lg:text-base`}></i><p className={`text-xs lg:text-sm font-bold ${p.color} mt-0.5`}>{persona}</p></div>);
+                  })()}
+                </div>
+                {/* Prescribing Pattern */}
+                <div className="bg-surface-50 rounded-xl p-2.5 lg:p-3">
+                  <div className="flex items-center justify-between mb-1.5 lg:mb-2"><span className="text-[10px] lg:text-xs text-gray-500">처방 패턴</span></div>
+                  {(() => {
+                    const pp = selectedKOL.prescriptionPower || 0;
+                    const pattern = pp >= 75 ? { label:'High Adopter', color:'text-green-600', icon:'fa-arrow-trend-up' } : pp >= 45 ? { label:'Moderate', color:'text-blue-600', icon:'fa-arrows-left-right' } : { label:'Conservative', color:'text-orange-600', icon:'fa-shield-halved' };
+                    return (<div className="text-center"><i className={`fas ${pattern.icon} ${pattern.color} text-sm lg:text-base`}></i><p className={`text-xs lg:text-sm font-bold ${pattern.color} mt-0.5`}>{pattern.label}</p></div>);
+                  })()}
+                </div>
               </div>
             </div>
           </div>
@@ -753,7 +775,7 @@ function PnTStrategy() {
 function PricingPage() {
   const plans = [
     { name:'Starter', price:'49,000', period:'/월', desc:'소규모 팀을 위한 기본 플랜', features:['월 50회 KOL AI 분석','팀원 3명','P&T 전략 플래너','기본 대시보드','이메일 지원'], highlight:false, cta:'무료 체험 시작' },
-    { name:'Professional', price:'149,000', period:'/월', desc:'영업 팀장을 위한 추천 플랜', features:['월 500회 KOL AI 분석','팀원 15명','P&T 전략 플래너 (무제한)','고급 대시보드 + 리포트','PubMed 실시간 연동','경쟁사 인텔리전스','우선 지원 + 전담 CSM'], highlight:true, cta:'14일 무료 체험' },
+    { name:'Professional', price:'149,000', period:'/월', desc:'영업팀을 위한 추천 플랜', features:['월 500회 KOL AI 분석','팀원 15명','P&T 전략 플래너 (무제한)','고급 대시보드 + 리포트','PubMed 실시간 연동','경쟁사 인텔리전스','우선 지원 + 전담 CSM'], highlight:true, cta:'14일 무료 체험' },
     { name:'Enterprise', price:'문의', period:'', desc:'대형 제약사 맞춤 플랜', features:['무제한 KOL AI 분석','무제한 팀원','맞춤 AI 모델 학습','SSO / SAML 인증','온프레미스 배포 가능','전용 API 제공','SLA 99.9% 보장'], highlight:false, cta:'영업팀 문의' }
   ];
   return (
@@ -802,42 +824,7 @@ function PricingPage() {
           ))}
         </div>
       </div>
-      {/* Hackathon Info */}
-      <div className="bg-gradient-to-r from-primary-800 to-primary-900 rounded-2xl p-5 lg:p-8 text-white max-w-5xl mx-auto">
-        <div className="flex items-center gap-2 mb-4">
-          <i className="fas fa-trophy text-yellow-400"></i>
-          <h3 className="text-lg lg:text-xl font-bold">OpenAI Hackathon 참가 프로젝트</h3>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
-          <div>
-            <h4 className="font-semibold text-blue-200 text-sm mb-2"><i className="fas fa-code mr-1"></i> 기술 스택</h4>
-            <ul className="text-xs lg:text-sm text-blue-100/80 space-y-1.5">
-              <li>• OpenAI GPT API (실시간 KOL 분석)</li>
-              <li>• Cloudflare Pages + Workers (엣지 배포)</li>
-              <li>• React + Tailwind CSS (프론트엔드)</li>
-              <li>• Hono Framework (API 서버)</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-semibold text-blue-200 text-sm mb-2"><i className="fas fa-star mr-1"></i> 시상 내역</h4>
-            <ul className="text-xs lg:text-sm text-blue-100/80 space-y-1.5">
-              <li>• 대상 1팀: $15,000 크레딧 + ChatGPT Pro 1년</li>
-              <li>• 최우수 3팀: $5,000 크레딧</li>
-              <li>• 우수 10팀: $2,000 크레딧</li>
-              <li>• 참가자 전원: $100 API 크레딧</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-semibold text-blue-200 text-sm mb-2"><i className="fas fa-bullseye mr-1"></i> 핵심 차별점</h4>
-            <ul className="text-xs lg:text-sm text-blue-100/80 space-y-1.5">
-              <li>• 12년차 제약영업 실전 노하우 반영</li>
-              <li>• 한국 의료시장 특화 AI 분석</li>
-              <li>• 실제 프로덕트 수준의 완성도</li>
-              <li>• 즉시 사용 가능한 B2B SaaS 모델</li>
-            </ul>
-          </div>
-        </div>
-      </div>
+
     </div>
   );
 }
