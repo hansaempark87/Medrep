@@ -1,137 +1,102 @@
-# MedRep Intelligence
+# MedRep Intelligence v4.0
 
-## AI-Powered Pharma Sales Intelligence Platform
-
-> 12년차 제약회사 영업 팀장의 실전 노하우를 AI로 구현한 KOL 인텔리전스 B2B SaaS 플랫폼
-
----
+## Project Overview
+- **Name**: MedRep Intelligence
+- **Goal**: 한국 제약/의료기기 영업팀을 위한 AI 기반 KOL 인텔리전스 플랫폼
+- **핵심 컨셉**: DB 등록 데이터 우선 → AI 접근 전략 보강 | 미등록 KOL은 AI 추정(정확도 제한 표시)
 
 ## URLs
 - **Production**: https://medrep-intelligence.pages.dev
-- **API Health Check**: https://medrep-intelligence.pages.dev/api/health
-- **KOL 분석 API**: `POST https://medrep-intelligence.pages.dev/api/kol/analyze`
+- **Sandbox**: https://3000-ii8z59j4vky73afgyytd4-8f57ffe2.sandbox.novita.ai
 - **GitHub**: https://github.com/hansaempark87/Medrep
 
-## Project Overview
-- **Name**: MedRep Intelligence (MedRepAI)
-- **Goal**: 제약업계 영업 팀의 KOL(핵심 오피니언 리더) 관리, 병원 약사위원회(P&T) 전략 수립, 팀 성과 관리를 AI 기반으로 지원하는 올인원 플랫폼
-- **Target Users**: 제약회사 영업 팀장, MR(Medical Representative), MSL(Medical Science Liaison)
-- **Tech Stack**: Hono + React (CDN) + Tailwind CSS (CDN) + Chart.js + OpenAI GPT + Cloudflare Pages
+## v4.0 주요 변경 사항
 
-## Key Features (구현 완료)
+### 백엔드 재설계
+- AI 프롬프트 전면 재작성: 경쟁사 정보 완전 제거, 순수 접근 전략에 집중
+- 새로운 AI 전략 필드: `oneLiner`, `keyInsights`, `preparationChecklist` 추가
+- `actionItems` 구조 개선: 방문 시점, 대화 주제, 준비 자료, 관계 유지 4가지 핵심 축
+- Do/Don't 리스트: 영업 담당자가 즉시 참고할 수 있는 행동 가이드
+- 모델: gpt-5-mini (GenSpark LLM Proxy)
 
-### 1. Dashboard (대시보드)
-- **상단 통계 카드**: 이번 달 KOL 47명 (전월 대비 23% 증가), 팀 활동 현황 12/15명, 긴급 일정 (D-3)
-- **월별 성과 차트**: 2024년 팀 성과 추이 막대그래프 (1월 15건 → 12월 47건)
-- **다가오는 일정**: P&T 위원회, 학술대회 등 D-day 관리 (4건)
-- **최근 분석 KOL 카드**: 클릭 시 KOL 인텔리전스로 자동 이동 + AI 분석 시작
-- **팀원 현황**: 6명 팀원별 활동 상태 및 목표 달성률
+### 프론트엔드 재설계
+- KOL 프로필 카드: Tier A/B/C/D 직접 표시 (100점 스케일 제거)
+- 탭 구조: 요약 → 치료 성향 → 연구·학술 → 미디어 → 접근 전략
+- AI 전략 섹션: 한 마디 요약, 핵심 인사이트, 실행 가이드, 대화 포인트, Do/Don't, 방문 전 체크리스트
+- DB vs AI 소스 구분 배지 개선
 
-### 2. KOL Intelligence (KOL 인텔리전스) - **핵심 기능 (OpenAI GPT 실시간 연동)**
-- **실시간 AI 분석**: 아무 교수/병원/진료과를 검색하면 OpenAI GPT가 실시간 분석
-- **빠른 검색 3개**: "서울대 김내분", "세브란스 박순환", "아산병원 이종양"
-- **프로그레시브 로딩 UX**: PubMed 수집 → 학회 분석 → 전략 생성 단계별 표시
-- **분석 결과 4개 탭**:
-  - **연구 동향**: 최신 연구 키워드, 학회 발표, 논문 트렌드
-  - **접근 전략**: 최적 방문 시간, 접근법, 주의사항, 관계 구축 포인트
-  - **경쟁사 현황**: 경쟁 제품 포지셔닝 및 위협도 (high/medium/low)
-  - **최근 활동 타임라인**: 학회발표, 논문, 임상시험, 자문위원 활동
-- **KOL 프로필**: 논문 수, H-Index, 임상시험 수, 영향력/접근성/처방 영향력 지수 (100점 만점)
-- **시스템 프롬프트**: 12년차 제약영업 팀장의 실전 노하우 + 한국 의료환경 특화
-
-### 3. P&T Strategy Planner (P&T 전략 플래너)
-- **병원별 약사위원회 관리**: 삼성서울병원 (D-3), 서울아산병원 (D-24)
-- **위원회 구성원 분석**: 각 위원의 영향력, 입장(우호/중립/부정), 공략 노트
-- **D-Day 카운터**: 회의까지 남은 기간 시각화 (긴급 빨강 표시)
-- **준비 서류 체크리스트**: 완료/진행중/검토필요 상태 관리
-- **AI 추천 액션 플랜**: 위원별 맞춤 전략 4개
-
-### 4. 구독 플랜 (가격 페이지)
-- **Starter**: 월 49,000원 (소규모 팀용, 월 50회 분석)
-- **Professional**: 월 149,000원 (영업 팀장용, 월 500회 분석, PubMed 연동)
-- **Enterprise**: 별도 문의 (대형 제약사, 무제한, 온프레미스)
-- **해커톤 프로젝트 정보**: 기술 스택, 시상 내역, 핵심 차별점
-
-## API Endpoints
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/health` | 서비스 상태 확인 |
-| POST | `/api/kol/analyze` | KOL AI 분석 (OpenAI GPT) |
-| GET | `/api/kol/history` | 분석 이력 조회 (D1 연동 시) |
-| POST | `/api/kol/history` | 분석 이력 저장 (D1 연동 시) |
-
-## 시연 시나리오 (Demo Flow)
-1. **대시보드** → 팀 성과 현황 확인 (통계 카드 + 차트)
-2. **최근 KOL 카드 클릭** → KOL 인텔리전스 자동 이동 + AI 분석 시작
-3. **빠른 검색 버튼** 클릭 → 실시간 AI 분석 로딩 UX → 결과 표시
-4. **4개 탭 전환** → 연구 동향 / 접근 전략 / 경쟁사 현황 / 최근 활동
-5. **자유 검색** → 임의의 교수명/병원 입력 → AI가 실시간 분석
-6. **P&T 전략** → 삼성서울병원 D-3 긴급 준비 확인
-7. **구독 플랜** → 수익 모델 + 해커톤 정보
+### 데이터 모델
+- `influence` (1-100) → `kolTier` (A/B/C/D) 직접 표시
+- `prescriptionPower` (1-100) → `prescriptionPattern` (High Adopter/Moderate/Conservative)
+- 경쟁사 관련 필드 제거
 
 ## Data Architecture
-- **프론트엔드**: React (CDN) + Tailwind CSS (CDN) + Chart.js - 단일 HTML 파일
-- **백엔드**: Hono Framework (TypeScript) - Cloudflare Workers
-- **AI**: OpenAI GPT API (gpt-5-mini) - 실시간 KOL 분석
-- **시크릿 관리**: Cloudflare Pages Secrets (OPENAI_API_KEY, OPENAI_BASE_URL)
-- **데이터**: Mock Data (대시보드/P&T) + AI 생성 (KOL 분석)
+- **Database**: Cloudflare D1 (SQLite)
+- **Tables**: `kol_profiles` (KOL 프로필), `kol_analyses` (분석 이력)
+- **Seed Data**: 정성진 교수 (분당서울대학교병원 비뇨의학과)
+
+### KOL 프로필 필드
+| 필드 | 설명 |
+|------|------|
+| name, hospital, department, position | 기본 정보 |
+| specialty_tags | 전문 분야 (JSON array) |
+| kol_tier | KOL 등급: A/B/C/D |
+| persona | Champion/Advocate/Supporter/Neutral/Non-Adopter |
+| prescription_pattern | High Adopter/Moderate/Conservative |
+| clinic_schedule | 주간 진료 일정 (요일별 오전/오후) |
+| treatment_philosophy | 치료 철학/성향 |
+| treatment_preferences | 질환별 치료 선호도 (JSON array) |
+| media_appearances | 방송/유튜브/인터뷰 (JSON array) |
+| research_focus | 핵심 연구 관심사 |
+| education, career, awards | 학력/경력/수상 |
+| key_publications | 주요 논문 |
+| society_roles | 학회 직책 |
+| books_patents | 저서/가이드라인 |
+| strategy_memo, visit_notes | 영업 전략 메모 |
+| source_urls | 출처 URL |
+
+## API 엔드포인트
+
+| Method | Path | 설명 |
+|--------|------|------|
+| GET | /api/health | 서비스 상태 확인 |
+| GET | /api/kol/profiles | KOL 목록 조회 |
+| GET | /api/kol/profiles/:id | KOL 상세 조회 |
+| POST | /api/kol/profiles | 새 KOL 등록 |
+| PUT | /api/kol/profiles/:id | KOL 수정 |
+| DELETE | /api/kol/profiles/:id | KOL 삭제 |
+| POST | /api/kol/analyze | KOL 분석 (DB 우선 → AI 보강) |
+| GET | /api/kol/history | 분석 이력 조회 (최근 20건) |
+
+## User Guide
+
+### KOL 검색
+1. **KOL 인텔리전스** 탭에서 교수명 검색
+2. DB 등록 KOL → 녹색 배지 + 실데이터 기반 분석 + AI 접근 전략
+3. 미등록 KOL → 주황 배지 + AI 추정 (정확도 제한)
+
+### KOL 등록/관리
+1. **KOL 데이터베이스** 탭에서 "새 KOL 등록" 클릭
+2. 기본 정보(이름/병원/진료과) 필수 입력
+3. Tier, Persona, 치료 철학, 연구 관심사 등 추가 정보 입력
+4. 수정/삭제 가능
+
+### 시드 데이터
+- **정성진 교수** (분당서울대학교병원 비뇨의학과)
+  - 출처: [의료진 소개페이지](https://www.snubh.org/medical/drIntroduce.do?DP_TP=O&DP_CD=UR&grp_val=Y&sDpCdDtl=UR&sDrSid=1000935&sDrStfNo=65424&sDpTp=O)
+  - 출처: [YouTube 건강강좌 1](https://youtube.com/watch?v=FkjAHj2j5z4)
+  - 출처: [YouTube 건강강좌 2](https://youtube.com/watch?v=Tn8_UjFhV10)
 
 ## Deployment
 - **Platform**: Cloudflare Pages
-- **Status**: ✅ Active
-- **Production URL**: https://medrep-intelligence.pages.dev
-- **Tech Stack**: Hono + React (CDN) + Tailwind CSS (CDN) + Chart.js + OpenAI GPT
-- **Build Tool**: Vite
-- **Secrets**: OPENAI_API_KEY, OPENAI_BASE_URL (encrypted)
+- **Status**: Active
+- **Tech Stack**: Hono + TypeScript + Tailwind CSS + React (CDN) + D1
 - **Last Updated**: 2026-02-11
 
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Build
-npm run build
-
-# Local development (with D1)
-npm run dev:sandbox
-
-# Deploy to Cloudflare Pages
-npm run deploy
-
-# Set production secrets
-npx wrangler pages secret put OPENAI_API_KEY --project-name medrep-intelligence
-npx wrangler pages secret put OPENAI_BASE_URL --project-name medrep-intelligence
-```
-
-## Project Structure
-```
-webapp/
-├── src/
-│   └── index.tsx          # Hono API endpoints (KOL 분석 API + OpenAI 연동)
-├── public/
-│   └── index.html         # Single-page React application (전체 UI)
-├── migrations/
-│   └── 0001_initial.sql   # D1 database schema
-├── ecosystem.config.cjs   # PM2 configuration
-├── vite.config.ts         # Vite + Hono build config
-├── wrangler.jsonc         # Cloudflare configuration
-└── package.json
-```
-
-## Future Roadmap
-- [x] ~~OpenAI API 연동: 실시간 KOL 분석~~ ✅ 완료
-- [x] ~~모바일 반응형 최적화~~ ✅ 완료
-- [x] ~~구독/가격 페이지~~ ✅ 완료
-- [ ] Cloudflare D1 프로덕션 바인딩 (분석 이력 영구 저장)
-- [ ] 실시간 PubMed/ClinicalTrials.gov 데이터 연동
-- [ ] 사용자 인증 시스템 (팀원별 로그인)
-- [ ] 팀원별 방문 일정 관리 및 캘린더 연동
-- [ ] PDF 리포트 자동 생성 및 공유
-- [ ] 결제/구독 시스템 (Stripe 연동)
-
----
-
-*Built with Hono + React + Tailwind CSS + OpenAI GPT on Cloudflare Pages*
-*OpenAI Hackathon 2024 참가 프로젝트*
+## 향후 확장 방향
+- [ ] KOL 프로필 상세 편집 UI (학력/경력/논문/미디어 개별 관리)
+- [ ] CSV/Excel 일괄 업로드 기능
+- [ ] KOL별 방문 이력 관리 및 타임라인
+- [ ] PubMed API 연동으로 논문 자동 업데이트
+- [ ] 병원 홈페이지 크롤링으로 진료일정 자동 업데이트
+- [ ] 프로덕션 D1 데이터베이스 연동
