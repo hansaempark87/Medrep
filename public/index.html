@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MedRep Intelligence - AI-Powered Pharma Sales Intelligence</title>
+<meta name="description" content="제약영업 팀장의 12년 실전 노하우를 AI로 구현한 KOL 인텔리전스 플랫폼"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css" rel="stylesheet"/>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        primary: { 50:'#e8f0f8', 100:'#c5d9ed', 200:'#9ebfe0', 300:'#77a5d3', 400:'#5991c9', 500:'#3b7dbf', 600:'#2f6ba8', 700:'#1f5a91', 800:'#0F4C81', 900:'#0a3a64', 950:'#062848' },
+        accent: { 50:'#fff7ed', 100:'#ffedd5', 200:'#fed7aa', 300:'#fdba74', 400:'#fb923c', 500:'#f97316', 600:'#ea580c', 700:'#c2410c', 800:'#9a3412', 900:'#7c2d12' },
+        success: { 50:'#ecfdf5', 100:'#d1fae5', 500:'#10b981', 600:'#059669', 700:'#047857' },
+        danger: { 50:'#fef2f2', 100:'#fee2e2', 500:'#ef4444', 600:'#dc2626' },
+        warn: { 50:'#fffbeb', 100:'#fef3c7', 500:'#f59e0b', 600:'#d97706' },
+        surface: { 50:'#f8fafc', 100:'#f1f5f9', 200:'#e2e8f0', 300:'#cbd5e1' }
+      },
+      fontFamily: { sans: ['Inter','Noto Sans KR','system-ui','sans-serif'] }
+    }
+  }
+}
+</script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Inter','Noto Sans KR',system-ui,sans-serif; background:#f0f4f8; }
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:#f1f5f9; }
+::-webkit-scrollbar-thumb { background:#94a3b8; border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:#64748b; }
+@keyframes fadeInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+@keyframes slideInRight { from { opacity:0; transform:translateX(30px); } to { opacity:1; transform:translateX(0); } }
+@keyframes pulse-glow { 0%,100% { box-shadow:0 0 0 0 rgba(15,76,129,0.2); } 50% { box-shadow:0 0 0 8px rgba(15,76,129,0); } }
+@keyframes typing { from { width:0 } to { width:100% } }
+@keyframes blink { 50% { border-color:transparent } }
+.animate-fadeInUp { animation: fadeInUp 0.5s ease-out forwards; }
+.animate-slideInRight { animation: slideInRight 0.4s ease-out forwards; }
+.pulse-glow { animation: pulse-glow 2s infinite; }
+.glass-card { background:rgba(255,255,255,0.85); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.5); }
+.gradient-border { background:linear-gradient(135deg,#0F4C81,#3b7dbf) padding-box, linear-gradient(135deg,#0F4C81,#60a5fa) border-box; }
+.stat-card:hover { transform:translateY(-4px); box-shadow:0 12px 40px rgba(15,76,129,0.15); }
+.nav-item:hover { background:rgba(255,255,255,0.1); }
+.nav-item.active { background:rgba(255,255,255,0.15); border-left:3px solid #60a5fa; }
+.typing-effect { overflow:hidden; white-space:nowrap; border-right:2px solid #0F4C81; animation: typing 2s steps(40,end), blink 0.75s step-end infinite; }
+.kol-card:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(0,0,0,0.1); }
+.strategy-item:hover { background:#f0f7ff; border-left-color:#0F4C81; }
+.ai-loading-dot { animation: pulse 1.5s ease-in-out infinite; }
+.ai-loading-dot:nth-child(2) { animation-delay:0.2s; }
+.ai-loading-dot:nth-child(3) { animation-delay:0.4s; }
+@keyframes shimmer { 0% { background-position:-200% 0; } 100% { background-position:200% 0; } }
+.shimmer { background:linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// ============================================================
+// MOCK DATA - 12년차 제약영업 팀장의 실전 데이터
+// ============================================================
+const kolDatabase = {
+  "서울대 김내분": {
+    name: "김내분 교수",
+    hospital: "서울대학교병원 내분비내과",
+    position: "내분비내과 과장 / 당뇨병센터장",
+    photo: "KN",
+    specialty: "내분비내과",
+    publications: 87,
+    hIndex: 34,
+    clinicalTrials: 12,
+    prescriptionTrend: "SGLT-2 억제제 선호도 상승 중",
+    lastVisit: "2024.01.08",
+    nextVisit: "2024.01.22",
+    influence: 92,
+    accessibility: 78,
+    prescriptionPower: 88,
+    trends: [
+      { keyword: "SGLT-2 억제제", desc: "심혈관 보호 효과 관련 연구 3편 발표, DAPA-CKD 연구 주도. 최근 학회에서 'SGLT-2의 심신보호 이중 효과'를 주제로 keynote 발표" },
+      { keyword: "당뇨병성 신증", desc: "진행 억제 메커니즘 연구, eGFR 60 미만 환자군 특화. KDA 가이드라인 개정위원으로 신장보호 챕터 집필 중" },
+      { keyword: "GLP-1/GIP 이중작용제", desc: "티르제파타이드 phase 4 연구 sub-investigator. 비만 동반 2형 당뇨 환자에서의 체중감량 효과에 높은 관심" }
+    ],
+    strategy: {
+      approach: "학술 중심 접근 (Evidence-Based)",
+      tips: [
+        { icon: "fa-lightbulb", title: "접근 전략", text: "최신 NEJM/Lancet 논문 레퍼런스 필수 준비. 교수님이 직접 인용할 수 있는 수준의 데이터 필요. 단순 영업 방문은 시간 낭비." },
+        { icon: "fa-clock", title: "최적 방문 시간", text: "화/목 오후 외래 종료 후 (16:30~17:00). 월요일은 교수회의로 절대 불가. 금요일은 연구실 집중일이라 비추천." },
+        { icon: "fa-exclamation-triangle", title: "주의사항", text: "경쟁사 A사 MSL이 매주 수요일 방문 중. 자사 데이터의 차별점을 명확히 준비할 것. 교수님은 head-to-head 비교 데이터를 특히 중시함." },
+        { icon: "fa-handshake", title: "관계 구축 포인트", text: "서울대 당뇨병 심포지엄 (3월) 좌장 예정. 스폰서십 논의 시 '학술적 독립성 보장' 강조 필수. 교수님 제자인 분당서울대 이OO 교수 통한 간접 레퍼런스 효과적." }
+      ],
+      competitors: [
+        { company: "A사 (노보)", product: "오젬픽", status: "주력 처방 중", threat: "high" },
+        { company: "B사 (릴리)", product: "마운자로", status: "임상 관심 단계", threat: "medium" },
+        { company: "C사 (AZ)", product: "포시가", status: "기존 처방 유지", threat: "medium" }
+      ]
+    },
+    recentActivities: [
+      { date: "2024.01.05", type: "학회발표", detail: "KDA 동계학술대회 - 'SGLT-2i의 심신보호 효과 최신 근거' 초청강연" },
+      { date: "2023.12.20", type: "논문발표", detail: "Diabetes Care - 'Renal Outcomes with SGLT-2 Inhibitors in Korean T2DM Patients' 교신저자" },
+      { date: "2023.12.10", type: "임상시험", detail: "티르제파타이드 한국인 대상 Phase 4 연구 환자 등록 개시" },
+      { date: "2023.11.28", type: "자문위원", detail: "건강보험심사평가원 당뇨병 급여기준 개정 자문위원 위촉" }
+    ]
+  },
+  "세브란스 박순환": {
+    name: "박순환 교수",
+    hospital: "세브란스병원 순환기내과",
+    position: "순환기내과 교수 / 심혈관센터 부센터장",
+    photo: "PS",
+    specialty: "순환기내과",
+    publications: 124,
+    hIndex: 41,
+    clinicalTrials: 18,
+    prescriptionTrend: "ARNI 적극 확대 처방 중",
+    lastVisit: "2024.01.10",
+    nextVisit: "2024.01.24",
+    influence: 96,
+    accessibility: 65,
+    prescriptionPower: 94,
+    trends: [
+      { keyword: "ARNI (사쿠비트릴/발사르탄)", desc: "HFrEF 1차 치료제로 적극 전환 중. PARADIGM-HF 후속 리얼월드 데이터 수집 주도. 한국인 특이적 용량 최적화 연구 진행" },
+      { keyword: "PCSK9 억제제", desc: "초고위험군 이상지질혈증 환자에서 적극 사용. 에볼로쿠맙 vs 알리로쿠맙 비교 연구 계획 중. 급여 확대 건보공단 협의 참여" },
+      { keyword: "심방세동 카테터 절제술", desc: "PFA(Pulsed Field Ablation) 도입 초기 단계. 기존 RF 절제 대비 합병증 감소 데이터에 높은 관심" }
+    ],
+    strategy: {
+      approach: "데이터 + 네트워크 복합 접근",
+      tips: [
+        { icon: "fa-lightbulb", title: "접근 전략", text: "리얼월드 데이터(RWD) 기반 대화 선호. 임상시험 데이터보다 실제 한국 환자 데이터에 더 반응. 세브란스 심장혈관병원 데이터베이스 활용 제안이 효과적." },
+        { icon: "fa-clock", title: "최적 방문 시간", text: "수요일 오전 시술 전 (07:30~08:00 브리핑 타임). 짧지만 핵심만 전달하면 가장 효과적. 목요일 오후 컨퍼런스 후도 가능." },
+        { icon: "fa-exclamation-triangle", title: "주의사항", text: "매우 바쁜 일정. 5분 이내 핵심 전달 필수. PPT 금지 - 1페이지 요약본만 준비. 방문 전 반드시 비서실 사전 확인." },
+        { icon: "fa-handshake", title: "관계 구축 포인트", text: "ACC/ESC 등 해외학회 동행 기회 활용. 올해 ESC 2024 (런던) 발표 예정 - 초록 준비 지원 제안. 세브란스 심장혈관병원 레지던트 대상 교육 프로그램 후원 검토." }
+      ],
+      competitors: [
+        { company: "N사 (노바티스)", product: "엔트레스토", status: "주력 처방약", threat: "high" },
+        { company: "A사 (암젠)", product: "레파타", status: "적극 처방 중", threat: "high" },
+        { company: "P사 (화이자)", product: "엘리퀴스", status: "1차 선택약", threat: "medium" }
+      ]
+    },
+    recentActivities: [
+      { date: "2024.01.08", type: "학회발표", detail: "대한심장학회 - 'ARNI의 리얼월드 효과: 세브란스 경험' 구연발표" },
+      { date: "2023.12.15", type: "임상시험", detail: "PCSK9 억제제 장기 안전성 연구 중간분석 결과 발표" },
+      { date: "2023.12.01", type: "가이드라인", detail: "2024 한국 심부전 진료지침 개정위원회 위원장 선임" },
+      { date: "2023.11.20", type: "언론", detail: "조선일보 건강면 '심부전 조기 치료의 중요성' 인터뷰 게재" }
+    ]
+  },
+  "아산병원 이종양": {
+    name: "이종양 교수",
+    hospital: "서울아산병원 종양내과",
+    position: "종양내과 교수 / 임상시험센터 부센터장",
+    photo: "LJ",
+    specialty: "종양내과",
+    publications: 156,
+    hIndex: 52,
+    clinicalTrials: 34,
+    prescriptionTrend: "면역항암제 + 표적치료 병용 적극 시행",
+    lastVisit: "2024.01.12",
+    nextVisit: "2024.01.19",
+    influence: 98,
+    accessibility: 55,
+    prescriptionPower: 96,
+    trends: [
+      { keyword: "ADC (항체-약물 접합체)", desc: "Trastuzumab deruxtecan(T-DXd) DESTINY 시리즈 한국 PI. HER2-low 유방암에서의 패러다임 전환을 주도. 2024년 ASCO 발표 준비 중" },
+      { keyword: "면역항암제 바이오마커", desc: "PD-L1 외 TMB, MSI-H 등 복합 바이오마커 연구. ctDNA 기반 MRD 모니터링으로 면역항암제 반응 예측 연구 주도" },
+      { keyword: "AI 기반 정밀의료", desc: "병리 AI와 유전체 분석 통합 플랫폼 개발 참여. NGS 패널 확대와 동반진단 표준화에 높은 관심" }
+    ],
+    strategy: {
+      approach: "글로벌 임상 네트워크 활용",
+      tips: [
+        { icon: "fa-lightbulb", title: "접근 전략", text: "글로벌 임상시험 기회 제공이 핵심. 한국을 포함한 아시아 다국가 임상 PI 역할 제안. 교수님은 ASCO/ESMO 급 발표 기회를 최우선시함." },
+        { icon: "fa-clock", title: "최적 방문 시간", text: "금요일 오후 연구 미팅 시간 (14:00~15:00). 사전에 CRC(임상연구간호사) 김OO 통해 스케줄 확인 필수. 화요일은 항암 주사실 라운드로 불가." },
+        { icon: "fa-exclamation-triangle", title: "주의사항", text: "아산병원 종양내과는 특히 compliance가 엄격. IRB 관련 사항 사전 숙지 필수. 교수님 앞에서 off-label 언급 절대 금지. MSL과 MR 역할 명확히 구분할 것." },
+        { icon: "fa-handshake", title: "관계 구축 포인트", text: "ASCO 2024 (시카고) 포스터 발표 예정 - 리셉션 참석 기회 확보. 아산병원 종양내과 fellow 대상 journal club 후원. 교수님 랩 소속 박사과정생 해외연수 지원 프로그램 안내." }
+      ],
+      competitors: [
+        { company: "D사 (다이이찌)", product: "엔허투", status: "핵심 처방약", threat: "high" },
+        { company: "M사 (MSD)", product: "키트루다", status: "1차 면역항암제", threat: "high" },
+        { company: "R사 (로슈)", product: "티쎈트릭", status: "폐암 병용요법", threat: "medium" }
+      ]
+    },
+    recentActivities: [
+      { date: "2024.01.10", type: "임상시험", detail: "T-DXd DESTINY-Breast06 한국 데이터 중간분석 완료. 아시아인 서브그룹 우수한 결과 확인" },
+      { date: "2023.12.22", type: "논문발표", detail: "NEJM - 'ADC Therapy in HER2-low Breast Cancer: Asian Perspective' 공동교신저자" },
+      { date: "2023.12.08", type: "학회발표", detail: "ESMO Asia 2023 - 'Biomarker-driven Immunotherapy in NSCLC' Invited lecture" },
+      { date: "2023.11.15", type: "특허출원", detail: "ctDNA 기반 면역항암제 반응 예측 알고리즘 특허 출원 (서울아산 공동)" }
+    ]
+  }
+};
+
+const recentKOLs = [
+  { name: "정심부 교수", hospital: "삼성서울병원 심장내과", date: "2024.01.11", tags: ["심부전","ARNI","디지털치료"] },
+  { name: "최소아 교수", hospital: "서울대어린이병원 소아과", date: "2024.01.10", tags: ["소아당뇨","인슐린펌프","CGM"] },
+  { name: "한피부 교수", hospital: "연세대 피부과", date: "2024.01.09", tags: ["아토피","JAK억제제","생물학적제제"] },
+  { name: "윤호흡 교수", hospital: "서울아산병원 호흡기내과", date: "2024.01.08", tags: ["COPD","삼중흡입제","생물학적제제"] }
+];
+
+const monthlyData = [
+  { month:"1월", count:15 }, { month:"2월", count:18 }, { month:"3월", count:22 },
+  { month:"4월", count:19 }, { month:"5월", count:25 }, { month:"6월", count:28 },
+  { month:"7월", count:31 }, { month:"8월", count:27 }, { month:"9월", count:35 },
+  { month:"10월", count:38 }, { month:"11월", count:42 }, { month:"12월", count:47 }
+];
+
+const upcomingSchedules = [
+  { title: "삼성서울병원 P&T 위원회", date: "2024.01.15", dday: 3, type: "critical", desc: "신약 등재 심의 - 발표자료 최종 검토 필요" },
+  { title: "서울대병원 약제부 미팅", date: "2024.01.18", dday: 6, type: "normal", desc: "분기별 약품 사용 현황 리뷰" },
+  { title: "KDA 동계학술대회", date: "2024.01.25", dday: 13, type: "conference", desc: "부스 운영 + 심포지엄 좌장 섭외 확인" },
+  { title: "분당서울대 약사위원회", date: "2024.01.22", dday: 10, type: "normal", desc: "약가 협상 관련 사전 미팅" }
+];
+
+const teamMembers = [
+  { name: "김영업", role: "수도권 1팀", status: "active", kols: 12, target: 85 },
+  { name: "이약품", role: "수도권 2팀", status: "active", kols: 9, target: 78 },
+  { name: "박제약", role: "경인지역", status: "active", kols: 11, target: 92 },
+  { name: "최마케", role: "충청지역", status: "inactive", kols: 7, target: 65 },
+  { name: "정학술", role: "MSL", status: "active", kols: 15, target: 88 },
+  { name: "한영업", role: "수도권 3팀", status: "active", kols: 10, target: 82 }
+];
+
+// P&T 전략 데이터
+const ptDatabase = {
+  hospitals: [
+    {
+      name: "삼성서울병원",
+      committee: "약사위원회 (P&T)",
+      nextMeeting: "2024.01.15",
+      dday: 3,
+      status: "준비중",
+      members: [
+        { name: "김약제 부장", role: "약제부장 (위원장)", influence: "최고", stance: "중립", note: "근거 중심 판단. 최신 메타분석 자료 준비 필수" },
+        { name: "정내과 교수", role: "내과 대표", influence: "높음", stance: "우호적", note: "우리 제품 임상경험 긍정적. 사전 1:1 미팅 완료" },
+        { name: "이외과 교수", role: "외과 대표", influence: "보통", stance: "중립", note: "관련 진료과 아니지만 비용 효과성에 관심" },
+        { name: "박약사", role: "임상약사", influence: "높음", stance: "부정적", note: "경쟁사 제품 대비 약가 우려. 약물경제학 자료 별도 준비 필요" }
+      ],
+      strategy: [
+        "김약제 부장에게 국내외 가이드라인 반영 현황 1페이지 요약 전달",
+        "정내과 교수의 처방 경험 사례를 위원회 발표에 활용 (사전 동의 완료)",
+        "박약사의 약가 우려에 대비한 약물경제학 분석 자료 (ICER 데이터) 준비",
+        "위원회 2일 전 약제부에 최종 자료 패킷 전달 (관례)"
+      ],
+      documents: [
+        { name: "제품 요약 자료 (PI Summary)", status: "완료", icon: "fa-file-medical" },
+        { name: "임상시험 핵심 데이터", status: "완료", icon: "fa-chart-bar" },
+        { name: "약물경제학 분석", status: "진행중", icon: "fa-calculator" },
+        { name: "국내외 가이드라인 비교표", status: "완료", icon: "fa-globe" },
+        { name: "경쟁제품 비교 자료", status: "검토필요", icon: "fa-balance-scale" }
+      ]
+    },
+    {
+      name: "서울아산병원",
+      committee: "신약심의위원회",
+      nextMeeting: "2024.02.05",
+      dday: 24,
+      status: "자료준비",
+      members: [
+        { name: "최약제 부장", role: "약제부장", influence: "최고", stance: "중립", note: "데이터 기반 의사결정. RCT + RWD 모두 중시" },
+        { name: "이종양 교수", role: "종양내과 대표", influence: "높음", stance: "우호적", note: "임상시험 경험으로 제품 이해도 높음" }
+      ],
+      strategy: [
+        "이종양 교수의 임상시험 경험을 활용한 리얼월드 데이터 제시",
+        "아산병원 내 유사 약제 처방 현황 분석 자료 준비"
+      ],
+      documents: [
+        { name: "제품 요약 자료", status: "진행중", icon: "fa-file-medical" },
+        { name: "임상시험 데이터 패키지", status: "진행중", icon: "fa-chart-bar" }
+      ]
+    }
+  ]
+};
+
+// ============================================================
+// COMPONENTS
+// ============================================================
+
+// -- Sidebar Navigation --
+function Sidebar({ currentPage, setCurrentPage }) {
+  const navItems = [
+    { id:'dashboard', icon:'fa-chart-line', label:'대시보드', badge: null },
+    { id:'kol', icon:'fa-user-doctor', label:'KOL 인텔리전스', badge: 'AI' },
+    { id:'pnt', icon:'fa-hospital', label:'P&T 전략', badge: '3' }
+  ];
+
+  return (
+    <div className="fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-primary-800 via-primary-900 to-primary-950 text-white flex flex-col z-50 shadow-2xl">
+      {/* Logo */}
+      <div className="p-5 border-b border-primary-700/50">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-cyan-300 rounded-xl flex items-center justify-center shadow-lg">
+            <i className="fas fa-brain text-primary-900 text-lg"></i>
+          </div>
+          <div>
+            <h1 className="text-lg font-bold tracking-tight">MedRep<span className="text-blue-300">AI</span></h1>
+            <p className="text-[10px] text-blue-300/70 tracking-wider uppercase">Intelligence Platform</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 p-3 space-y-1 mt-2">
+        {navItems.map(item => (
+          <button
+            key={item.id}
+            onClick={() => setCurrentPage(item.id)}
+            className={`nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 ${
+              currentPage === item.id 
+                ? 'active bg-white/15 text-white font-semibold shadow-lg shadow-primary-900/30' 
+                : 'text-blue-200/80 hover:text-white'
+            }`}
+          >
+            <i className={`fas ${item.icon} w-5 text-center ${currentPage === item.id ? 'text-blue-300' : ''}`}></i>
+            <span className="text-sm">{item.label}</span>
+            {item.badge && (
+              <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                item.badge === 'AI' 
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
+                  : 'bg-blue-500/30 text-blue-200'
+              }`}>{item.badge}</span>
+            )}
+          </button>
+        ))}
+      </nav>
+
+      {/* User Profile */}
+      <div className="p-4 border-t border-primary-700/50">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-cyan-300 flex items-center justify-center text-primary-900 font-bold text-sm">TL</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate">팀장님</p>
+            <p className="text-[11px] text-blue-300/60">내분비대사 팀</p>
+          </div>
+          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -- Header --
+function Header({ currentPage }) {
+  const titles = {
+    dashboard: { title:'대시보드', sub:'팀 성과와 주요 지표를 한눈에 확인하세요' },
+    kol: { title:'KOL 인텔리전스', sub:'AI 기반 핵심 오피니언 리더 분석' },
+    pnt: { title:'P&T 전략 플래너', sub:'병원 약사위원회 대응 전략 수립' }
+  };
+  const info = titles[currentPage] || titles.dashboard;
+
+  return (
+    <header className="bg-white/80 backdrop-blur-md border-b border-surface-200 px-8 py-4 sticky top-0 z-40">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">{info.title}</h2>
+          <p className="text-sm text-gray-500 mt-0.5">{info.sub}</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <button className="w-10 h-10 rounded-xl bg-surface-100 flex items-center justify-center text-gray-500 hover:bg-surface-200 transition-colors">
+              <i className="fas fa-bell"></i>
+            </button>
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-danger-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">3</span>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-gray-400">마지막 동기화</p>
+            <p className="text-xs text-gray-600 font-medium">오늘 09:30</p>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+// -- Stat Card --
+function StatCard({ icon, iconColor, bgColor, title, value, sub, subColor, delay }) {
+  return (
+    <div className="stat-card bg-white rounded-2xl p-6 shadow-sm border border-surface-200/60 transition-all duration-300 animate-fadeInUp" style={{ animationDelay: `${delay}ms` }}>
+      <div className="flex items-start justify-between">
+        <div className={`w-12 h-12 ${bgColor} rounded-xl flex items-center justify-center`}>
+          <i className={`fas ${icon} ${iconColor} text-lg`}></i>
+        </div>
+      </div>
+      <div className="mt-4">
+        <p className="text-sm text-gray-500 font-medium">{title}</p>
+        <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+        <p className={`text-xs mt-2 ${subColor} font-medium flex items-center gap-1`}>{sub}</p>
+      </div>
+    </div>
+  );
+}
+
+// -- Chart Component --
+function PerformanceChart() {
+  const chartRef = useRef(null);
+  const chartInstance = useRef(null);
+
+  useEffect(() => {
+    if (chartInstance.current) chartInstance.current.destroy();
+    const ctx = chartRef.current.getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+    gradient.addColorStop(0, 'rgba(15,76,129,0.3)');
+    gradient.addColorStop(1, 'rgba(15,76,129,0.02)');
+    
+    chartInstance.current = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: monthlyData.map(d => d.month),
+        datasets: [{
+          label: 'KOL 분석 건수',
+          data: monthlyData.map(d => d.count),
+          backgroundColor: monthlyData.map((d,i) => i === 11 ? '#0F4C81' : 'rgba(15,76,129,0.5)'),
+          borderColor: monthlyData.map((d,i) => i === 11 ? '#0F4C81' : 'rgba(15,76,129,0.6)'),
+          borderWidth: 1,
+          borderRadius: 6,
+          borderSkipped: false,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1e293b',
+            titleFont: { family: 'Inter, Noto Sans KR', size: 12 },
+            bodyFont: { family: 'Inter, Noto Sans KR', size: 11 },
+            padding: 12,
+            cornerRadius: 8,
+            callbacks: {
+              label: ctx => `분석 건수: ${ctx.parsed.y}건`
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false },
+            ticks: { font: { family: 'Inter', size: 11 }, color: '#94a3b8' }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { font: { family: 'Inter, Noto Sans KR', size: 11 }, color: '#64748b' }
+          }
+        }
+      }
+    });
+
+    return () => { if (chartInstance.current) chartInstance.current.destroy(); };
+  }, []);
+
+  return <canvas ref={chartRef}></canvas>;
+}
+
+// -- Dashboard Page --
+function Dashboard() {
+  return (
+    <div className="space-y-6">
+      {/* Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <StatCard
+          icon="fa-user-doctor" iconColor="text-primary-600" bgColor="bg-primary-50"
+          title="이번 달 분석한 KOL" value="47명"
+          sub={<><i className="fas fa-arrow-up text-[10px]"></i> 전월 대비 23% 증가</>}
+          subColor="text-success-600" delay={0}
+        />
+        <StatCard
+          icon="fa-users" iconColor="text-accent-600" bgColor="bg-accent-50"
+          title="팀 활동 현황" value="12 / 15명"
+          sub={<><i className="fas fa-circle text-[8px] text-green-400"></i> 활성 사용자 80%</>}
+          subColor="text-gray-500" delay={100}
+        />
+        <StatCard
+          icon="fa-calendar-check" iconColor="text-danger-500" bgColor="bg-danger-50"
+          title="다가오는 일정" value={<>삼성서울병원 P&T</>}
+          sub={<><span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-bold text-[11px] pulse-glow"><i className="fas fa-exclamation-circle text-[9px]"></i> D-3 긴급 준비 필요</span></>}
+          subColor="text-danger-600" delay={200}
+        />
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Chart */}
+        <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-surface-200/60 animate-fadeInUp" style={{ animationDelay: '300ms' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-bold text-gray-900">2024년 팀 성과 현황</h3>
+              <p className="text-xs text-gray-400 mt-1">월별 KOL 분석 추이</p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <span className="w-3 h-3 rounded bg-primary-800"></span> 이번 달
+              <span className="w-3 h-3 rounded bg-primary-300"></span> 이전
+            </div>
+          </div>
+          <div style={{ height:'280px' }}>
+            <PerformanceChart />
+          </div>
+        </div>
+
+        {/* Upcoming Schedule */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-surface-200/60 animate-fadeInUp" style={{ animationDelay: '400ms' }}>
+          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <i className="fas fa-calendar-alt text-primary-500"></i> 다가오는 일정
+          </h3>
+          <div className="space-y-3">
+            {upcomingSchedules.map((s, i) => (
+              <div key={i} className={`p-3 rounded-xl border-l-4 ${
+                s.type === 'critical' ? 'border-red-500 bg-red-50/50' :
+                s.type === 'conference' ? 'border-purple-500 bg-purple-50/50' :
+                'border-primary-300 bg-primary-50/30'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-800">{s.title}</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    s.dday <= 5 ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'
+                  }`}>D-{s.dday}</span>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent KOLs + Team */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Recent KOLs */}
+        <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-surface-200/60 animate-fadeInUp" style={{ animationDelay: '500ms' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <i className="fas fa-history text-primary-500"></i> 최근 분석한 KOL
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {recentKOLs.map((kol, i) => (
+              <div key={i} className="kol-card p-4 rounded-xl border border-surface-200 hover:border-primary-200 transition-all duration-200 cursor-pointer group">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                    {kol.name.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm">{kol.name}</p>
+                    <p className="text-[11px] text-gray-400 truncate">{kol.hospital}</p>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {kol.tags.map((tag,j) => (
+                        <span key={j} className="text-[10px] px-2 py-0.5 rounded-full bg-primary-50 text-primary-600 font-medium">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-gray-300">{kol.date}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Team Status */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-surface-200/60 animate-fadeInUp" style={{ animationDelay: '600ms' }}>
+          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <i className="fas fa-users text-primary-500"></i> 팀원 현황
+          </h3>
+          <div className="space-y-3">
+            {teamMembers.map((m, i) => (
+              <div key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-50 transition-colors">
+                <div className={`w-2 h-2 rounded-full ${m.status === 'active' ? 'bg-green-400' : 'bg-gray-300'}`}></div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-800">{m.name}</span>
+                    <span className="text-[10px] text-gray-400">KOL {m.kols}건</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex-1 h-1.5 bg-surface-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${m.target >= 85 ? 'bg-green-400' : m.target >= 70 ? 'bg-blue-400' : 'bg-orange-400'}`} style={{ width: `${m.target}%` }}></div>
+                    </div>
+                    <span className="text-[10px] text-gray-400 w-8 text-right">{m.target}%</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -- KOL Intelligence Page --
+function KOLIntelligence() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedKOL, setSelectedKOL] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showResult, setShowResult] = useState(false);
+  const [activeTab, setActiveTab] = useState('trends');
+
+  const handleSearch = (query) => {
+    const q = query || searchQuery;
+    if (!q.trim()) return;
+    const key = Object.keys(kolDatabase).find(k => q.includes(k.split(' ')[1]) || q.includes(k));
+    if (!key) return;
+
+    setSearchQuery(q);
+    setIsAnalyzing(true);
+    setShowResult(false);
+    setActiveTab('trends');
+
+    setTimeout(() => {
+      setSelectedKOL(kolDatabase[key]);
+      setIsAnalyzing(false);
+      setShowResult(true);
+    }, 1800);
+  };
+
+  const quickSearches = ["서울대 김내분", "세브란스 박순환", "아산병원 이종양"];
+
+  return (
+    <div className="space-y-6">
+      {/* Search Section */}
+      <div className="bg-white rounded-2xl p-8 shadow-sm border border-surface-200/60 animate-fadeInUp">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full mb-3">
+            <i className="fas fa-sparkles text-purple-500 text-xs"></i>
+            <span className="text-xs font-semibold text-purple-600">AI-Powered Analysis</span>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900">KOL 인텔리전스 분석</h2>
+          <p className="text-sm text-gray-400 mt-1">교수님의 연구 동향, 처방 패턴, 최적 접근 전략을 AI가 분석합니다</p>
+        </div>
+
+        <div className="max-w-2xl mx-auto">
+          <div className="relative">
+            <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-300"></i>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="교수님 이름과 소속을 입력하세요 (예: 서울대 김내분)"
+              className="w-full pl-12 pr-28 py-4 rounded-2xl border-2 border-surface-200 focus:border-primary-400 focus:ring-4 focus:ring-primary-100 outline-none text-sm transition-all duration-200"
+            />
+            <button
+              onClick={() => handleSearch()}
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-6 py-2.5 bg-gradient-to-r from-primary-800 to-primary-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-primary-800/25 transition-all duration-200"
+            >
+              <i className="fas fa-brain mr-1.5"></i> AI 분석
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 mt-4 justify-center flex-wrap">
+            <span className="text-xs text-gray-400">빠른 검색:</span>
+            {quickSearches.map((q, i) => (
+              <button
+                key={i}
+                onClick={() => { setSearchQuery(q); handleSearch(q); }}
+                className="text-xs px-3 py-1.5 rounded-full border border-primary-200 text-primary-600 hover:bg-primary-50 hover:border-primary-300 transition-all duration-200 font-medium"
+              >
+                <i className="fas fa-user-doctor mr-1 text-[10px]"></i> {q}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {isAnalyzing && (
+        <div className="bg-white rounded-2xl p-12 shadow-sm border border-surface-200/60 text-center animate-fadeInUp">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <div className="ai-loading-dot w-3 h-3 rounded-full bg-primary-500"></div>
+            <div className="ai-loading-dot w-3 h-3 rounded-full bg-primary-400"></div>
+            <div className="ai-loading-dot w-3 h-3 rounded-full bg-primary-300"></div>
+          </div>
+          <h3 className="text-lg font-bold text-gray-800">AI가 분석 중입니다...</h3>
+          <div className="mt-4 max-w-sm mx-auto space-y-2 text-left">
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <i className="fas fa-check-circle text-green-400"></i> PubMed 논문 데이터 수집 완료
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <i className="fas fa-check-circle text-green-400"></i> 학회 발표 이력 분석 완료
+            </div>
+            <div className="flex items-center gap-2 text-sm text-primary-500">
+              <i className="fas fa-spinner fa-spin"></i> 처방 패턴 및 전략 생성 중...
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Results */}
+      {showResult && selectedKOL && (
+        <div className="space-y-5 animate-fadeInUp">
+          {/* KOL Profile Header */}
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-surface-200/60">
+            <div className="h-24 bg-gradient-to-r from-primary-800 via-primary-700 to-primary-600 relative overflow-hidden">
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute top-4 left-10 w-32 h-32 border border-white/30 rounded-full"></div>
+                <div className="absolute -bottom-8 right-20 w-48 h-48 border border-white/20 rounded-full"></div>
+              </div>
+            </div>
+            <div className="px-8 pb-6 -mt-10 relative">
+              <div className="flex items-end gap-5">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-400 to-cyan-300 flex items-center justify-center text-primary-900 text-2xl font-bold border-4 border-white shadow-lg">
+                  {selectedKOL.photo}
+                </div>
+                <div className="flex-1 pb-1">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-bold text-gray-900">{selectedKOL.name}</h2>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-600 font-bold">Active KOL</span>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-0.5">{selectedKOL.hospital} | {selectedKOL.position}</p>
+                </div>
+                <div className="flex gap-4 pb-1">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-primary-800">{selectedKOL.publications}</p>
+                    <p className="text-[10px] text-gray-400">논문 수</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-primary-800">{selectedKOL.hIndex}</p>
+                    <p className="text-[10px] text-gray-400">H-Index</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-primary-800">{selectedKOL.clinicalTrials}</p>
+                    <p className="text-[10px] text-gray-400">임상시험</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Influence Meters */}
+              <div className="grid grid-cols-3 gap-4 mt-5">
+                {[
+                  { label:'영향력 지수', val: selectedKOL.influence, color:'bg-blue-500' },
+                  { label:'접근성', val: selectedKOL.accessibility, color:'bg-green-500' },
+                  { label:'처방 영향력', val: selectedKOL.prescriptionPower, color:'bg-purple-500' }
+                ].map((m, i) => (
+                  <div key={i} className="bg-surface-50 rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-gray-500">{m.label}</span>
+                      <span className="text-sm font-bold text-gray-800">{m.val}/100</span>
+                    </div>
+                    <div className="h-2 bg-surface-200 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${m.color} transition-all duration-1000`} style={{ width:`${m.val}%` }}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Tab Navigation */}
+          <div className="flex gap-1 bg-white rounded-2xl p-1.5 shadow-sm border border-surface-200/60">
+            {[
+              { id:'trends', icon:'fa-chart-line', label:'연구 동향' },
+              { id:'strategy', icon:'fa-chess', label:'접근 전략' },
+              { id:'competitors', icon:'fa-swords', label:'경쟁사 현황' },
+              { id:'activities', icon:'fa-timeline', label:'최근 활동' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                  activeTab === tab.id
+                    ? 'bg-primary-800 text-white shadow-lg shadow-primary-800/20'
+                    : 'text-gray-500 hover:bg-surface-50'
+                }`}
+              >
+                <i className={`fas ${tab.icon} text-xs`}></i> {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'trends' && (
+            <div className="grid gap-4 animate-fadeInUp">
+              {selectedKOL.trends.map((t, i) => (
+                <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-surface-200/60 border-l-4 border-l-primary-500 hover:shadow-md transition-all duration-200" style={{ animationDelay:`${i*100}ms` }}>
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center flex-shrink-0">
+                      <i className="fas fa-microscope text-primary-600"></i>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900 flex items-center gap-2">
+                        {t.keyword}
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-500 font-medium">Hot Topic</span>
+                      </h4>
+                      <p className="text-sm text-gray-600 mt-2 leading-relaxed">{t.desc}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'strategy' && (
+            <div className="space-y-4 animate-fadeInUp">
+              <div className="bg-gradient-to-r from-primary-50 to-blue-50 rounded-2xl p-5 border border-primary-100">
+                <div className="flex items-center gap-2 mb-1">
+                  <i className="fas fa-bullseye text-primary-600"></i>
+                  <span className="text-sm font-bold text-primary-800">추천 접근 전략</span>
+                </div>
+                <p className="text-sm text-primary-700 font-medium">{selectedKOL.strategy.approach}</p>
+              </div>
+              {selectedKOL.strategy.tips.map((tip, i) => (
+                <div key={i} className="strategy-item bg-white rounded-2xl p-5 shadow-sm border border-surface-200/60 border-l-4 border-l-transparent hover:border-l-primary-500 transition-all duration-200">
+                  <div className="flex items-start gap-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                      tip.icon === 'fa-lightbulb' ? 'bg-yellow-50 text-yellow-600' :
+                      tip.icon === 'fa-clock' ? 'bg-blue-50 text-blue-600' :
+                      tip.icon === 'fa-exclamation-triangle' ? 'bg-red-50 text-red-500' :
+                      'bg-green-50 text-green-600'
+                    }`}>
+                      <i className={`fas ${tip.icon}`}></i>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900">{tip.title}</h4>
+                      <p className="text-sm text-gray-600 mt-1.5 leading-relaxed">{tip.text}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'competitors' && (
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-surface-200/60 animate-fadeInUp">
+              <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <i className="fas fa-shield-halved text-primary-500"></i> 경쟁사 포지셔닝 현황
+              </h3>
+              <div className="space-y-3">
+                {selectedKOL.strategy.competitors.map((c, i) => (
+                  <div key={i} className="flex items-center gap-4 p-4 rounded-xl border border-surface-200 hover:border-primary-200 transition-all">
+                    <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                      c.threat === 'high' ? 'bg-red-500' : c.threat === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+                    }`}></div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-800 text-sm">{c.company}</span>
+                        <span className="text-xs px-2 py-0.5 rounded bg-surface-100 text-gray-500">{c.product}</span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">{c.status}</p>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                      c.threat === 'high' ? 'bg-red-100 text-red-600' : c.threat === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-600'
+                    }`}>
+                      {c.threat === 'high' ? '위협 높음' : c.threat === 'medium' ? '주의 필요' : '위협 낮음'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'activities' && (
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-surface-200/60 animate-fadeInUp">
+              <h3 className="font-bold text-gray-900 mb-5 flex items-center gap-2">
+                <i className="fas fa-clock-rotate-left text-primary-500"></i> 최근 활동 타임라인
+              </h3>
+              <div className="relative pl-8">
+                <div className="absolute left-3 top-2 bottom-2 w-0.5 bg-surface-200"></div>
+                {selectedKOL.recentActivities.map((a, i) => (
+                  <div key={i} className="relative mb-6 last:mb-0" style={{ animationDelay:`${i*150}ms` }}>
+                    <div className={`absolute -left-5 w-4 h-4 rounded-full border-2 border-white shadow ${
+                      a.type === '학회발표' ? 'bg-blue-500' :
+                      a.type === '논문발표' ? 'bg-purple-500' :
+                      a.type === '임상시험' ? 'bg-green-500' :
+                      a.type === '자문위원' ? 'bg-orange-500' :
+                      a.type === '가이드라인' ? 'bg-red-500' :
+                      a.type === '언론' ? 'bg-cyan-500' :
+                      a.type === '특허출원' ? 'bg-pink-500' : 'bg-gray-400'
+                    }`}></div>
+                    <div className="ml-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs text-gray-400">{a.date}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                          a.type === '학회발표' ? 'bg-blue-50 text-blue-600' :
+                          a.type === '논문발표' ? 'bg-purple-50 text-purple-600' :
+                          a.type === '임상시험' ? 'bg-green-50 text-green-600' :
+                          a.type === '자문위원' ? 'bg-orange-50 text-orange-600' :
+                          a.type === '가이드라인' ? 'bg-red-50 text-red-600' :
+                          a.type === '언론' ? 'bg-cyan-50 text-cyan-600' :
+                          a.type === '특허출원' ? 'bg-pink-50 text-pink-600' : 'bg-gray-50 text-gray-600'
+                        }`}>{a.type}</span>
+                      </div>
+                      <p className="text-sm text-gray-700 leading-relaxed">{a.detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// -- P&T Strategy Page --
+function PnTStrategy() {
+  const [selectedHospital, setSelectedHospital] = useState(0);
+  const hospital = ptDatabase.hospitals[selectedHospital];
+
+  return (
+    <div className="space-y-6">
+      {/* Hospital Selector */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeInUp">
+        {ptDatabase.hospitals.map((h, i) => (
+          <button
+            key={i}
+            onClick={() => setSelectedHospital(i)}
+            className={`p-5 rounded-2xl border-2 text-left transition-all duration-200 ${
+              selectedHospital === i
+                ? 'border-primary-500 bg-primary-50/50 shadow-lg shadow-primary-100'
+                : 'border-surface-200 bg-white hover:border-primary-200'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  selectedHospital === i ? 'bg-primary-800 text-white' : 'bg-surface-100 text-gray-400'
+                }`}>
+                  <i className="fas fa-hospital text-lg"></i>
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">{h.name}</h3>
+                  <p className="text-xs text-gray-400">{h.committee}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className={`text-sm font-bold ${h.dday <= 7 ? 'text-red-500' : 'text-gray-500'}`}>D-{h.dday}</span>
+                <p className="text-[10px] text-gray-400">{h.nextMeeting}</p>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Committee Members */}
+        <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-surface-200/60 animate-fadeInUp" style={{ animationDelay:'100ms' }}>
+          <h3 className="font-bold text-gray-900 mb-5 flex items-center gap-2">
+            <i className="fas fa-user-group text-primary-500"></i> 위원회 구성원 분석
+          </h3>
+          <div className="space-y-4">
+            {hospital.members.map((m, i) => (
+              <div key={i} className="p-4 rounded-xl border border-surface-200 hover:border-primary-200 hover:shadow-sm transition-all duration-200">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                    {m.name.charAt(0)}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-gray-800 text-sm">{m.name}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-surface-100 text-gray-500">{m.role}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                        m.stance === '우호적' ? 'bg-green-100 text-green-600' :
+                        m.stance === '부정적' ? 'bg-red-100 text-red-600' :
+                        'bg-gray-100 text-gray-500'
+                      }`}>{m.stance}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                        m.influence === '최고' ? 'bg-purple-100 text-purple-600' :
+                        m.influence === '높음' ? 'bg-blue-100 text-blue-600' :
+                        'bg-gray-100 text-gray-400'
+                      }`}>영향력: {m.influence}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                      <i className="fas fa-lightbulb text-yellow-500 mr-1"></i>{m.note}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Preparation Docs */}
+        <div className="space-y-5">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-surface-200/60 animate-fadeInUp" style={{ animationDelay:'200ms' }}>
+            <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <i className="fas fa-folder-open text-primary-500"></i> 준비 서류
+            </h3>
+            <div className="space-y-2.5">
+              {hospital.documents.map((d, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-xl border border-surface-200 hover:bg-surface-50 transition-all">
+                  <i className={`fas ${d.icon} text-primary-400`}></i>
+                  <span className="flex-1 text-sm text-gray-700">{d.name}</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                    d.status === '완료' ? 'bg-green-100 text-green-600' :
+                    d.status === '진행중' ? 'bg-blue-100 text-blue-600' :
+                    'bg-orange-100 text-orange-600'
+                  }`}>{d.status}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* D-Day Counter */}
+          <div className={`rounded-2xl p-6 text-center animate-fadeInUp ${
+            hospital.dday <= 7
+              ? 'bg-gradient-to-br from-red-500 to-red-600 text-white'
+              : 'bg-gradient-to-br from-primary-700 to-primary-800 text-white'
+          }`} style={{ animationDelay:'300ms' }}>
+            <p className="text-sm font-medium opacity-80">회의까지 남은 기간</p>
+            <p className="text-5xl font-black mt-2">D-{hospital.dday}</p>
+            <p className="text-sm mt-2 opacity-80">{hospital.nextMeeting}</p>
+            {hospital.dday <= 7 && (
+              <div className="mt-3 flex items-center justify-center gap-1 text-xs">
+                <i className="fas fa-exclamation-triangle"></i>
+                <span className="font-semibold">긴급 준비 필요</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Action Plan */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-surface-200/60 animate-fadeInUp" style={{ animationDelay:'400ms' }}>
+        <h3 className="font-bold text-gray-900 mb-5 flex items-center gap-2">
+          <i className="fas fa-list-check text-primary-500"></i> AI 추천 액션 플랜
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {hospital.strategy.map((s, i) => (
+            <div key={i} className="flex items-start gap-3 p-4 rounded-xl bg-surface-50 border border-surface-200 hover:border-primary-200 transition-all">
+              <div className="w-7 h-7 rounded-lg bg-primary-800 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">{i+1}</div>
+              <p className="text-sm text-gray-700 leading-relaxed">{s}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// MAIN APP
+// ============================================================
+function App() {
+  const [currentPage, setCurrentPage] = useState('dashboard');
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'dashboard': return <Dashboard />;
+      case 'kol': return <KOLIntelligence />;
+      case 'pnt': return <PnTStrategy />;
+      default: return <Dashboard />;
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen bg-surface-50">
+      <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} />
+      <main className="flex-1 ml-64">
+        <Header currentPage={currentPage} />
+        <div className="p-6 lg:p-8">
+          {renderPage()}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
