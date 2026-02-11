@@ -47,7 +47,6 @@ body { font-family:'Inter','Noto Sans KR',system-ui,sans-serif; background:#f0f4
 .strategy-item:hover { background:#f0f7ff; border-left-color:#0F4C81; }
 @keyframes progressStep { from { width:0; } to { width:100%; } }
 .progress-animate { animation: progressStep 20s linear forwards; }
-.shimmer-bg { background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%); background-size: 400px 100%; animation: shimmer 1.5s infinite linear; }
 </style>
 </head>
 <body>
@@ -98,12 +97,7 @@ const ptDatabase = {
         { name: "이외과 교수", role: "외과 대표", influence: "보통", stance: "중립", note: "관련 진료과 아니지만 비용 효과성에 관심" },
         { name: "박약사", role: "임상약사", influence: "높음", stance: "부정적", note: "경쟁사 제품 대비 약가 우려. 약물경제학 자료 별도 준비 필요" }
       ],
-      strategy: [
-        "김약제 부장에게 국내외 가이드라인 반영 현황 1페이지 요약 전달",
-        "정내과 교수의 처방 경험 사례를 위원회 발표에 활용 (사전 동의 완료)",
-        "박약사의 약가 우려에 대비한 약물경제학 분석 자료 (ICER 데이터) 준비",
-        "위원회 2일 전 약제부에 최종 자료 패킷 전달 (관례)"
-      ],
+      strategy: ["김약제 부장에게 국내외 가이드라인 반영 현황 1페이지 요약 전달","정내과 교수의 처방 경험 사례를 위원회 발표에 활용 (사전 동의 완료)","박약사의 약가 우려에 대비한 약물경제학 분석 자료 (ICER 데이터) 준비","위원회 2일 전 약제부에 최종 자료 패킷 전달 (관례)"],
       documents: [
         { name: "제품 요약 자료 (PI Summary)", status: "완료", icon: "fa-file-medical" },
         { name: "임상시험 핵심 데이터", status: "완료", icon: "fa-chart-bar" },
@@ -118,10 +112,7 @@ const ptDatabase = {
         { name: "최약제 부장", role: "약제부장", influence: "최고", stance: "중립", note: "데이터 기반 의사결정. RCT + RWD 모두 중시" },
         { name: "이종양 교수", role: "종양내과 대표", influence: "높음", stance: "우호적", note: "임상시험 경험으로 제품 이해도 높음" }
       ],
-      strategy: [
-        "이종양 교수의 임상시험 경험을 활용한 리얼월드 데이터 제시",
-        "아산병원 내 유사 약제 처방 현황 분석 자료 준비"
-      ],
+      strategy: ["이종양 교수의 임상시험 경험을 활용한 리얼월드 데이터 제시","아산병원 내 유사 약제 처방 현황 분석 자료 준비"],
       documents: [
         { name: "제품 요약 자료", status: "진행중", icon: "fa-file-medical" },
         { name: "임상시험 데이터 패키지", status: "진행중", icon: "fa-chart-bar" }
@@ -137,12 +128,12 @@ function Sidebar({ currentPage, setCurrentPage, sidebarOpen, setSidebarOpen }) {
   const navItems = [
     { id:'dashboard', icon:'fa-chart-line', label:'대시보드', badge: null },
     { id:'kol', icon:'fa-user-doctor', label:'KOL 인텔리전스', badge: 'AI' },
+    { id:'koldb', icon:'fa-database', label:'KOL 데이터베이스', badge: null },
     { id:'pnt', icon:'fa-hospital', label:'P&T 전략', badge: '2' },
     { id:'pricing', icon:'fa-credit-card', label:'구독 플랜', badge: null }
   ];
   return (
     <>
-      {/* Mobile overlay */}
       {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
       <div className={`fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-primary-800 via-primary-900 to-primary-950 text-white flex flex-col z-50 shadow-2xl transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-5 border-b border-primary-700/50">
@@ -191,6 +182,7 @@ function Header({ currentPage, setSidebarOpen }) {
   const titles = {
     dashboard: { title:'대시보드', sub:'팀 성과와 주요 지표를 한눈에 확인하세요' },
     kol: { title:'KOL 인텔리전스', sub:'OpenAI 기반 핵심 오피니언 리더 실시간 분석' },
+    koldb: { title:'KOL 데이터베이스', sub:'KOL 프로필을 직접 등록하고 관리하세요' },
     pnt: { title:'P&T 전략 플래너', sub:'병원 약사위원회 대응 전략 수립' },
     pricing: { title:'구독 플랜', sub:'팀 규모에 맞는 최적의 플랜을 선택하세요' }
   };
@@ -347,8 +339,117 @@ function Dashboard({ onNavigateToKOL }) {
 }
 
 // ============================================================
-// KOL INTELLIGENCE - OpenAI API 실시간 연동
+// KOL INTELLIGENCE - DB 우선 + AI 보강
 // ============================================================
+function SourceBadge({ source }) {
+  if (source === 'database+ai') return (
+    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-green-500/10 to-blue-500/10 rounded-full">
+      <i className="fas fa-database text-green-500 text-[10px]"></i>
+      <span className="text-[10px] font-bold text-green-600">DB 확인 데이터</span>
+      <span className="text-[10px] text-gray-400">+</span>
+      <i className="fas fa-wand-magic-sparkles text-purple-500 text-[10px]"></i>
+      <span className="text-[10px] font-bold text-purple-600">AI 보강 분석</span>
+    </span>
+  );
+  if (source === 'database') return (
+    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 rounded-full">
+      <i className="fas fa-database text-green-500 text-[10px]"></i>
+      <span className="text-[10px] font-bold text-green-600">DB 등록 데이터</span>
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 rounded-full">
+      <i className="fas fa-robot text-amber-500 text-[10px]"></i>
+      <span className="text-[10px] font-bold text-amber-600">AI 추정 결과</span>
+      <span className="text-[9px] text-amber-400 ml-1">정확도 제한</span>
+    </span>
+  );
+}
+
+function DBProfileSection({ dbProfile }) {
+  if (!dbProfile) return null;
+  return (
+    <div className="bg-white rounded-2xl p-5 lg:p-6 shadow-sm border border-green-200 animate-fadeInUp">
+      <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-sm lg:text-base">
+        <i className="fas fa-database text-green-500"></i> 등록된 프로필 상세
+        <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-600 font-medium">확인된 정보</span>
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* 전문 분야 */}
+        {dbProfile.specialtyTags?.length > 0 && (
+          <div className="p-3 bg-surface-50 rounded-xl">
+            <p className="text-xs text-gray-500 font-medium mb-2"><i className="fas fa-tags mr-1"></i>전문 분야</p>
+            <div className="flex flex-wrap gap-1.5">
+              {dbProfile.specialtyTags.map((t, i) => <span key={i} className="text-xs px-2.5 py-1 rounded-full bg-primary-50 text-primary-600 font-medium">{t}</span>)}
+            </div>
+          </div>
+        )}
+        {/* 학력 */}
+        {dbProfile.education?.length > 0 && (
+          <div className="p-3 bg-surface-50 rounded-xl">
+            <p className="text-xs text-gray-500 font-medium mb-2"><i className="fas fa-graduation-cap mr-1"></i>학력</p>
+            <div className="space-y-1">
+              {dbProfile.education.map((e, i) => <p key={i} className="text-xs text-gray-700">{e.year} {e.school} <span className="text-gray-400">{e.degree}</span></p>)}
+            </div>
+          </div>
+        )}
+        {/* 주요 경력 */}
+        {dbProfile.career?.length > 0 && (
+          <div className="p-3 bg-surface-50 rounded-xl md:col-span-2">
+            <p className="text-xs text-gray-500 font-medium mb-2"><i className="fas fa-briefcase mr-1"></i>주요 경력</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+              {dbProfile.career.map((c, i) => <p key={i} className="text-xs text-gray-700">{c.period} <span className="text-gray-500">{c.institution}</span> <span className="text-primary-600 font-medium">{c.role}</span></p>)}
+            </div>
+          </div>
+        )}
+        {/* 수상 */}
+        {dbProfile.awards?.length > 0 && (
+          <div className="p-3 bg-surface-50 rounded-xl">
+            <p className="text-xs text-gray-500 font-medium mb-2"><i className="fas fa-trophy mr-1"></i>수상 이력</p>
+            <div className="space-y-1">
+              {dbProfile.awards.slice(0, 5).map((a, i) => <p key={i} className="text-xs text-gray-700">{a.year} <span className="text-amber-600">{a.title}</span></p>)}
+              {dbProfile.awards.length > 5 && <p className="text-xs text-gray-400">외 {dbProfile.awards.length - 5}건</p>}
+            </div>
+          </div>
+        )}
+        {/* 학회 직책 */}
+        {dbProfile.societyRoles?.length > 0 && (
+          <div className="p-3 bg-surface-50 rounded-xl">
+            <p className="text-xs text-gray-500 font-medium mb-2"><i className="fas fa-landmark mr-1"></i>학회 직책</p>
+            <div className="space-y-1">
+              {dbProfile.societyRoles.map((r, i) => <p key={i} className="text-xs text-gray-700">{r.year} <span className="text-gray-500">{r.society}</span> <span className="text-blue-600 font-medium">{r.role}</span></p>)}
+            </div>
+          </div>
+        )}
+        {/* 주요 논문 */}
+        {dbProfile.keyPublications?.length > 0 && (
+          <div className="p-3 bg-surface-50 rounded-xl md:col-span-2">
+            <p className="text-xs text-gray-500 font-medium mb-2"><i className="fas fa-file-lines mr-1"></i>주요 논문</p>
+            <div className="space-y-1.5">
+              {dbProfile.keyPublications.map((p, i) => (
+                <div key={i} className="text-xs">
+                  <span className="text-gray-400">({p.year})</span> <span className="text-gray-700">{p.title}</span> <span className="text-blue-500 font-medium">[{p.journal}]</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* 출처 URL */}
+        {dbProfile.sourceUrls?.length > 0 && (
+          <div className="p-3 bg-surface-50 rounded-xl md:col-span-2">
+            <p className="text-xs text-gray-500 font-medium mb-2"><i className="fas fa-link mr-1"></i>출처</p>
+            <div className="flex flex-wrap gap-2">
+              {dbProfile.sourceUrls.map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:text-blue-700 underline truncate max-w-xs">{url.replace(/https?:\/\//, '').substring(0, 40)}...</a>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function KOLIntelligence({ initialQuery }) {
   const [searchQuery, setSearchQuery] = useState(initialQuery || '');
   const [selectedKOL, setSelectedKOL] = useState(null);
@@ -357,9 +458,9 @@ function KOLIntelligence({ initialQuery }) {
   const [activeTab, setActiveTab] = useState('trends');
   const [error, setError] = useState(null);
   const [loadingSteps, setLoadingSteps] = useState([]);
+  const [dataSource, setDataSource] = useState(null);
   const hasAutoSearched = useRef(false);
 
-  // Auto-search when navigated from dashboard with a query
   useEffect(() => {
     if (initialQuery && initialQuery.trim().length >= 2 && !hasAutoSearched.current) {
       hasAutoSearched.current = true;
@@ -377,17 +478,17 @@ function KOLIntelligence({ initialQuery }) {
     setError(null);
     setActiveTab('trends');
     setLoadingSteps([]);
+    setDataSource(null);
 
     const steps = [
-      { text: 'OpenAI에 KOL 분석 요청 전송 중...', delay: 0 },
-      { text: 'PubMed 논문 데이터 기반 연구 트렌드 분석...', delay: 2000 },
-      { text: '학회 발표 이력 및 처방 패턴 분석 중...', delay: 5000 },
-      { text: '경쟁사 포지셔닝 및 접근 전략 생성 중...', delay: 9000 },
+      { text: 'KOL 데이터베이스 검색 중...', delay: 0 },
+      { text: 'OpenAI에 KOL 분석 요청 전송 중...', delay: 1500 },
+      { text: 'PubMed 논문 데이터 기반 연구 트렌드 분석...', delay: 3500 },
+      { text: '학회 발표 이력 및 처방 패턴 분석 중...', delay: 6500 },
+      { text: '경쟁사 포지셔닝 및 접근 전략 생성 중...', delay: 10000 },
       { text: '맞춤형 인텔리전스 리포트 생성 중...', delay: 14000 }
     ];
-    steps.forEach((step) => {
-      setTimeout(() => setLoadingSteps(prev => [...prev, step.text]), step.delay);
-    });
+    steps.forEach(step => setTimeout(() => setLoadingSteps(prev => [...prev, step.text]), step.delay));
 
     try {
       const response = await fetch('/api/kol/analyze', {
@@ -404,20 +505,15 @@ function KOLIntelligence({ initialQuery }) {
       const result = await response.json();
       if (result.success && result.data) {
         const d = result.data;
+        setDataSource(result.source || 'ai');
         setSelectedKOL({
           ...d,
           photo: d.name ? d.name.replace(/\s*교수.*/, '').replace(/\(.*\)/, '').trim().slice(-1) || '?' : '?',
           strategy: d.strategy || { approach:'', tips:[], competitors:[] },
-          recentActivities: d.recentActivities || []
+          recentActivities: d.recentActivities || [],
+          dbProfile: d.dbProfile || null
         });
         setShowResult(true);
-
-        // Save to history (fire and forget)
-        fetch('/api/kol/history', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: q, name: d.name, hospital: d.hospital, specialty: d.specialty, result_json: d })
-        }).catch(() => {});
       } else {
         throw new Error('분석 결과를 받지 못했습니다');
       }
@@ -429,7 +525,7 @@ function KOLIntelligence({ initialQuery }) {
   };
 
   const quickSearches = [
-    { label: "서울대 김내분", query: "서울대학교병원 내분비내과 김내분 교수" },
+    { label: "분당서울대 정성진", query: "분당서울대학교병원 비뇨의학과 정성진 교수" },
     { label: "세브란스 박순환", query: "세브란스병원 순환기내과 박순환 교수" },
     { label: "아산병원 이종양", query: "서울아산병원 종양내과 이종양 교수" }
   ];
@@ -439,19 +535,22 @@ function KOLIntelligence({ initialQuery }) {
       {/* Search Section */}
       <div className="bg-white rounded-2xl p-5 lg:p-8 shadow-sm border border-surface-200/60 animate-fadeInUp">
         <div className="text-center mb-5 lg:mb-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full mb-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-green-500/10 to-purple-500/10 rounded-full mb-3">
+            <i className="fas fa-database text-green-500 text-xs"></i>
+            <span className="text-xs font-semibold text-green-600">DB 우선 검색</span>
+            <span className="text-xs text-gray-400">+</span>
             <i className="fas fa-wand-magic-sparkles text-purple-500 text-xs"></i>
-            <span className="text-xs font-semibold text-purple-600">Powered by OpenAI GPT</span>
+            <span className="text-xs font-semibold text-purple-600">AI 보강 분석</span>
           </div>
           <h2 className="text-xl lg:text-2xl font-bold text-gray-900">KOL 인텔리전스 분석</h2>
-          <p className="text-xs lg:text-sm text-gray-400 mt-1">교수님 이름이나 소속을 입력하세요 — AI가 실시간 분석합니다</p>
+          <p className="text-xs lg:text-sm text-gray-400 mt-1">등록된 KOL은 정확한 데이터 기반, 미등록 KOL은 AI가 실시간 분석합니다</p>
         </div>
         <div className="max-w-2xl mx-auto">
           <div className="relative">
             <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-300"></i>
             <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !isAnalyzing && handleSearch()}
-              placeholder="교수님 이름과 소속을 입력하세요"
+              placeholder="교수님 이름과 소속을 입력하세요 (예: 분당서울대 정성진)"
               disabled={isAnalyzing}
               className="w-full pl-12 pr-28 lg:pr-32 py-3.5 lg:py-4 rounded-2xl border-2 border-surface-200 focus:border-primary-400 focus:ring-4 focus:ring-primary-100 outline-none text-sm transition-all duration-200 disabled:opacity-50" />
             <button onClick={() => handleSearch()} disabled={isAnalyzing}
@@ -481,10 +580,10 @@ function KOLIntelligence({ initialQuery }) {
               <div className="w-2.5 h-2.5 rounded-full bg-primary-400 animate-bounce" style={{animationDelay:'150ms'}}></div>
               <div className="w-2.5 h-2.5 rounded-full bg-primary-300 animate-bounce" style={{animationDelay:'300ms'}}></div>
             </div>
-            <h3 className="text-lg font-bold text-gray-800 text-center mb-1">AI가 분석 중입니다</h3>
-            <p className="text-xs text-gray-400 text-center mb-6">OpenAI GPT가 제약 영업 전문가 관점으로 분석하고 있습니다</p>
+            <h3 className="text-lg font-bold text-gray-800 text-center mb-1">KOL 분석 중</h3>
+            <p className="text-xs text-gray-400 text-center mb-6">DB 검색 후 AI가 영업 전문가 관점으로 보강 분석합니다</p>
             <div className="w-full h-1.5 bg-surface-100 rounded-full overflow-hidden mb-5">
-              <div className="h-full bg-gradient-to-r from-primary-500 to-blue-400 rounded-full progress-animate"></div>
+              <div className="h-full bg-gradient-to-r from-green-500 via-primary-500 to-purple-400 rounded-full progress-animate"></div>
             </div>
             <div className="space-y-2">
               {loadingSteps.map((step, i) => (
@@ -518,24 +617,30 @@ function KOLIntelligence({ initialQuery }) {
       {/* Results */}
       {showResult && selectedKOL && (
         <div className="space-y-4 lg:space-y-5 animate-fadeInUp">
+          {/* Source Badge */}
+          <div className="flex items-center justify-center">
+            <SourceBadge source={dataSource} />
+          </div>
+
           {/* Profile Header */}
           <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-surface-200/60">
-            <div className="h-20 lg:h-24 bg-gradient-to-r from-primary-800 via-primary-700 to-primary-600 relative overflow-hidden">
+            <div className={`h-20 lg:h-24 relative overflow-hidden ${dataSource === 'database+ai' || dataSource === 'database' ? 'bg-gradient-to-r from-green-700 via-primary-700 to-primary-600' : 'bg-gradient-to-r from-amber-600 via-primary-700 to-primary-600'}`}>
               <div className="absolute inset-0 opacity-10"><div className="absolute top-4 left-10 w-32 h-32 border border-white/30 rounded-full"></div><div className="absolute -bottom-8 right-20 w-48 h-48 border border-white/20 rounded-full"></div></div>
-              <div className="absolute top-3 right-4 flex items-center gap-1.5 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full">
-                <i className="fas fa-bolt text-yellow-300 text-[10px]"></i>
-                <span className="text-[10px] text-white font-medium">AI Generated</span>
+              <div className="absolute top-3 right-4">
+                <SourceBadge source={dataSource} />
               </div>
             </div>
             <div className="px-5 lg:px-8 pb-5 lg:pb-6 -mt-8 lg:-mt-10 relative">
               <div className="flex items-end gap-4 lg:gap-5 flex-wrap">
-                <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl bg-gradient-to-br from-blue-400 to-cyan-300 flex items-center justify-center text-primary-900 text-xl lg:text-2xl font-bold border-4 border-white shadow-lg">
+                <div className={`w-16 h-16 lg:w-20 lg:h-20 rounded-2xl flex items-center justify-center text-xl lg:text-2xl font-bold border-4 border-white shadow-lg ${dataSource !== 'ai' ? 'bg-gradient-to-br from-green-400 to-cyan-300 text-green-900' : 'bg-gradient-to-br from-amber-300 to-orange-300 text-amber-900'}`}>
                   {selectedKOL.photo}
                 </div>
                 <div className="flex-1 pb-1 min-w-0">
                   <div className="flex items-center gap-2 lg:gap-3 flex-wrap">
                     <h2 className="text-lg lg:text-xl font-bold text-gray-900">{selectedKOL.name}</h2>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-600 font-bold">Active KOL</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${dataSource !== 'ai' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
+                      {dataSource !== 'ai' ? 'Verified KOL' : 'AI Estimated'}
+                    </span>
                   </div>
                   <p className="text-xs lg:text-sm text-gray-500 mt-0.5">{selectedKOL.hospital} {selectedKOL.position ? `| ${selectedKOL.position}` : ''}</p>
                 </div>
@@ -551,7 +656,7 @@ function KOLIntelligence({ initialQuery }) {
                   <div className="flex items-center justify-between mb-1.5 lg:mb-2"><span className="text-[10px] lg:text-xs text-gray-500">KOL Tier</span></div>
                   {(() => {
                     const inf = selectedKOL.influence || 0;
-                    const tier = inf >= 85 ? { label:'Tier A', desc:'Global / National KOL', color:'bg-purple-600', textColor:'text-purple-600', bgColor:'bg-purple-50' } : inf >= 65 ? { label:'Tier B', desc:'Regional KOL', color:'bg-blue-500', textColor:'text-blue-600', bgColor:'bg-blue-50' } : inf >= 40 ? { label:'Tier C', desc:'Local KOL', color:'bg-teal-500', textColor:'text-teal-600', bgColor:'bg-teal-50' } : { label:'Tier D', desc:'Emerging Expert', color:'bg-gray-400', textColor:'text-gray-500', bgColor:'bg-gray-50' };
+                    const tier = inf >= 85 ? { label:'Tier A', desc:'Global / National KOL', color:'bg-purple-600', textColor:'text-purple-600' } : inf >= 65 ? { label:'Tier B', desc:'Regional KOL', color:'bg-blue-500', textColor:'text-blue-600' } : inf >= 40 ? { label:'Tier C', desc:'Local KOL', color:'bg-teal-500', textColor:'text-teal-600' } : { label:'Tier D', desc:'Emerging Expert', color:'bg-gray-400', textColor:'text-gray-500' };
                     return (<div className="text-center"><span className={`inline-block text-sm lg:text-base font-black ${tier.textColor}`}>{tier.label}</span><p className="text-[9px] lg:text-[10px] text-gray-400 mt-0.5">{tier.desc}</p></div>);
                   })()}
                 </div>
@@ -559,8 +664,8 @@ function KOLIntelligence({ initialQuery }) {
                 <div className="bg-surface-50 rounded-xl p-2.5 lg:p-3">
                   <div className="flex items-center justify-between mb-1.5 lg:mb-2"><span className="text-[10px] lg:text-xs text-gray-500">Persona</span></div>
                   {(() => {
-                    const persona = selectedKOL.persona || (selectedKOL.influence >= 80 ? 'Champion' : selectedKOL.influence >= 60 ? 'Advocate' : selectedKOL.influence >= 40 ? 'Supporter' : 'Neutral');
-                    const map = { 'Champion':{ icon:'fa-crown', color:'text-yellow-600', bg:'bg-yellow-50' }, 'Advocate':{ icon:'fa-bullhorn', color:'text-blue-600', bg:'bg-blue-50' }, 'Supporter':{ icon:'fa-thumbs-up', color:'text-green-600', bg:'bg-green-50' }, 'Neutral':{ icon:'fa-minus-circle', color:'text-gray-500', bg:'bg-gray-50' }, 'Non-Adopter':{ icon:'fa-ban', color:'text-red-500', bg:'bg-red-50' } };
+                    const persona = selectedKOL.persona || 'Neutral';
+                    const map = { 'Champion':{ icon:'fa-crown', color:'text-yellow-600' }, 'Advocate':{ icon:'fa-bullhorn', color:'text-blue-600' }, 'Supporter':{ icon:'fa-thumbs-up', color:'text-green-600' }, 'Neutral':{ icon:'fa-minus-circle', color:'text-gray-500' }, 'Non-Adopter':{ icon:'fa-ban', color:'text-red-500' } };
                     const p = map[persona] || map['Neutral'];
                     return (<div className="text-center"><i className={`fas ${p.icon} ${p.color} text-sm lg:text-base`}></i><p className={`text-xs lg:text-sm font-bold ${p.color} mt-0.5`}>{persona}</p></div>);
                   })()}
@@ -578,6 +683,9 @@ function KOLIntelligence({ initialQuery }) {
             </div>
           </div>
 
+          {/* DB Profile Detail (only if DB data exists) */}
+          {selectedKOL.dbProfile && <DBProfileSection dbProfile={selectedKOL.dbProfile} />}
+
           {/* Tabs */}
           <div className="flex gap-1 bg-white rounded-2xl p-1.5 shadow-sm border border-surface-200/60 overflow-x-auto">
             {[{id:'trends',icon:'fa-chart-line',label:'연구 동향'},{id:'strategy',icon:'fa-chess',label:'접근 전략'},{id:'competitors',icon:'fa-shield-halved',label:'경쟁사 현황'},{id:'activities',icon:'fa-clock-rotate-left',label:'최근 활동'}].map(tab => (
@@ -589,10 +697,10 @@ function KOLIntelligence({ initialQuery }) {
           </div>
 
           {/* Tab Content: Trends */}
-          {activeTab === 'trends' && selectedKOL.trends && (
+          {activeTab === 'trends' && selectedKOL.trends && selectedKOL.trends.length > 0 && (
             <div className="grid gap-3 lg:gap-4 animate-fadeInUp">
               {selectedKOL.trends.map((t, i) => (
-                <div key={i} className="bg-white rounded-2xl p-5 lg:p-6 shadow-sm border border-surface-200/60 border-l-4 border-l-primary-500 hover:shadow-md transition-all duration-200">
+                <div key={i} className="bg-white rounded-2xl p-5 lg:p-6 shadow-sm border border-surface-200/60 border-l-4 border-l-primary-500">
                   <div className="flex items-start gap-3 lg:gap-4">
                     <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-primary-50 flex items-center justify-center flex-shrink-0"><i className="fas fa-microscope text-primary-600"></i></div>
                     <div><h4 className="font-bold text-gray-900 text-sm lg:text-base flex items-center gap-2 flex-wrap">{t.keyword}<span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-500 font-medium">Hot Topic</span></h4>
@@ -602,13 +710,32 @@ function KOLIntelligence({ initialQuery }) {
               ))}
             </div>
           )}
+          {activeTab === 'trends' && (!selectedKOL.trends || selectedKOL.trends.length === 0) && (
+            <div className="bg-white rounded-2xl p-8 shadow-sm border border-surface-200/60 text-center">
+              <i className="fas fa-chart-line text-3xl text-gray-200 mb-3"></i>
+              <p className="text-sm text-gray-400">AI 보강 분석이 필요합니다. OpenAI API 키를 확인하세요.</p>
+            </div>
+          )}
 
           {/* Tab Content: Strategy */}
           {activeTab === 'strategy' && selectedKOL.strategy && (
             <div className="space-y-3 lg:space-y-4 animate-fadeInUp">
+              {/* DB 전략 메모 */}
+              {selectedKOL.dbProfile?.strategyMemo && (
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-4 lg:p-5 border border-green-200">
+                  <div className="flex items-center gap-2 mb-2"><i className="fas fa-database text-green-500"></i><span className="text-xs lg:text-sm font-bold text-green-700">등록된 전략 메모</span><span className="text-[10px] px-2 py-0.5 bg-green-100 text-green-600 rounded-full">확인된 정보</span></div>
+                  <p className="text-xs lg:text-sm text-green-800 leading-relaxed whitespace-pre-wrap">{selectedKOL.dbProfile.strategyMemo}</p>
+                </div>
+              )}
+              {selectedKOL.dbProfile?.visitNotes && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-4 lg:p-5 border border-blue-200">
+                  <div className="flex items-center gap-2 mb-2"><i className="fas fa-route text-blue-500"></i><span className="text-xs lg:text-sm font-bold text-blue-700">방문 전략 메모</span><span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full">확인된 정보</span></div>
+                  <p className="text-xs lg:text-sm text-blue-800 leading-relaxed whitespace-pre-wrap">{selectedKOL.dbProfile.visitNotes}</p>
+                </div>
+              )}
               {selectedKOL.strategy.approach && (
                 <div className="bg-gradient-to-r from-primary-50 to-blue-50 rounded-2xl p-4 lg:p-5 border border-primary-100">
-                  <div className="flex items-center gap-2 mb-1"><i className="fas fa-bullseye text-primary-600"></i><span className="text-xs lg:text-sm font-bold text-primary-800">추천 접근 전략</span></div>
+                  <div className="flex items-center gap-2 mb-1"><i className="fas fa-bullseye text-primary-600"></i><span className="text-xs lg:text-sm font-bold text-primary-800">AI 추천 접근 전략</span></div>
                   <p className="text-xs lg:text-sm text-primary-700 font-medium">{selectedKOL.strategy.approach}</p>
                 </div>
               )}
@@ -626,11 +753,11 @@ function KOLIntelligence({ initialQuery }) {
           )}
 
           {/* Tab Content: Competitors */}
-          {activeTab === 'competitors' && selectedKOL.strategy?.competitors && (
+          {activeTab === 'competitors' && (
             <div className="bg-white rounded-2xl p-5 lg:p-6 shadow-sm border border-surface-200/60 animate-fadeInUp">
               <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-sm lg:text-base"><i className="fas fa-shield-halved text-primary-500"></i> 경쟁사 포지셔닝 현황</h3>
               <div className="space-y-3">
-                {selectedKOL.strategy.competitors.map((c, i) => (
+                {(selectedKOL.strategy?.competitors || []).map((c, i) => (
                   <div key={i} className="flex items-center gap-3 lg:gap-4 p-3 lg:p-4 rounded-xl border border-surface-200 hover:border-primary-200 transition-all">
                     <div className={`w-3 h-3 rounded-full flex-shrink-0 ${c.threat==='high'?'bg-red-500':c.threat==='medium'?'bg-yellow-500':'bg-green-500'}`}></div>
                     <div className="flex-1 min-w-0">
@@ -647,7 +774,7 @@ function KOLIntelligence({ initialQuery }) {
           )}
 
           {/* Tab Content: Activities */}
-          {activeTab === 'activities' && selectedKOL.recentActivities && (
+          {activeTab === 'activities' && selectedKOL.recentActivities && selectedKOL.recentActivities.length > 0 && (
             <div className="bg-white rounded-2xl p-5 lg:p-6 shadow-sm border border-surface-200/60 animate-fadeInUp">
               <h3 className="font-bold text-gray-900 mb-4 lg:mb-5 flex items-center gap-2 text-sm lg:text-base"><i className="fas fa-clock-rotate-left text-primary-500"></i> 최근 활동 타임라인</h3>
               <div className="relative pl-7 lg:pl-8">
@@ -674,19 +801,231 @@ function KOLIntelligence({ initialQuery }) {
         </div>
       )}
 
-      {/* Empty State when no search yet */}
+      {/* Empty State */}
       {!isAnalyzing && !showResult && !error && (
         <div className="bg-white rounded-2xl p-8 lg:p-12 shadow-sm border border-surface-200/60 text-center animate-fadeInUp">
           <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-50 to-blue-50 flex items-center justify-center">
             <i className="fas fa-user-doctor text-3xl text-primary-300"></i>
           </div>
           <h3 className="text-lg font-bold text-gray-800">KOL을 검색해보세요</h3>
-          <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">교수님 이름, 병원명, 진료과 등을 입력하면<br/>AI가 실시간으로 분석하여 영업 인텔리전스를 제공합니다</p>
+          <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">DB에 등록된 KOL은 <span className="text-green-600 font-medium">정확한 데이터</span>를 표시하고,<br/>미등록 KOL은 <span className="text-purple-600 font-medium">AI가 추정 분석</span>합니다</p>
           <div className="flex items-center justify-center gap-4 mt-6 text-xs text-gray-400">
-            <span className="flex items-center gap-1.5"><i className="fas fa-chart-line text-primary-400"></i> 연구 동향</span>
-            <span className="flex items-center gap-1.5"><i className="fas fa-chess text-primary-400"></i> 접근 전략</span>
-            <span className="flex items-center gap-1.5"><i className="fas fa-shield-halved text-primary-400"></i> 경쟁사 분석</span>
+            <span className="flex items-center gap-1.5"><i className="fas fa-database text-green-400"></i> DB 우선</span>
+            <span className="flex items-center gap-1.5"><i className="fas fa-brain text-purple-400"></i> AI 보강</span>
+            <span className="flex items-center gap-1.5"><i className="fas fa-shield-halved text-primary-400"></i> 정확도 표시</span>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// KOL DATABASE MANAGEMENT
+// ============================================================
+function KOLDatabase() {
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({ name:'', hospital:'', department:'', position:'', specialty_tags:'', kol_tier:'C', persona:'Neutral', prescription_pattern:'Moderate', strategy_memo:'', visit_notes:'' });
+
+  const loadProfiles = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/kol/profiles');
+      const data = await res.json();
+      setProfiles(data.data || []);
+    } catch (err) { console.error(err); }
+    setLoading(false);
+  };
+
+  useEffect(() => { loadProfiles(); }, []);
+
+  const handleSubmit = async () => {
+    if (!form.name || !form.hospital || !form.department) {
+      alert('이름, 병원, 진료과는 필수입니다');
+      return;
+    }
+    try {
+      const payload = {
+        ...form,
+        specialty_tags: form.specialty_tags ? form.specialty_tags.split(',').map(s => s.trim()).filter(Boolean) : []
+      };
+      const url = editingId ? `/api/kol/profiles/${editingId}` : '/api/kol/profiles';
+      const method = editingId ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const result = await res.json();
+      if (result.success || result.id) {
+        setShowForm(false);
+        setEditingId(null);
+        setForm({ name:'', hospital:'', department:'', position:'', specialty_tags:'', kol_tier:'C', persona:'Neutral', prescription_pattern:'Moderate', strategy_memo:'', visit_notes:'' });
+        loadProfiles();
+      } else {
+        alert(result.error || '저장 실패');
+      }
+    } catch (err) { alert('오류: ' + err.message); }
+  };
+
+  const handleEdit = async (id) => {
+    try {
+      const res = await fetch(`/api/kol/profiles/${id}`);
+      const result = await res.json();
+      if (result.data) {
+        const d = result.data;
+        const tags = d.specialty_tags ? (typeof d.specialty_tags === 'string' ? JSON.parse(d.specialty_tags) : d.specialty_tags) : [];
+        setForm({
+          name: d.name || '', hospital: d.hospital || '', department: d.department || '',
+          position: d.position || '', specialty_tags: tags.join(', '),
+          kol_tier: d.kol_tier || 'C', persona: d.persona || 'Neutral',
+          prescription_pattern: d.prescription_pattern || 'Moderate',
+          strategy_memo: d.strategy_memo || '', visit_notes: d.visit_notes || ''
+        });
+        setEditingId(id);
+        setShowForm(true);
+      }
+    } catch (err) { alert('로드 실패: ' + err.message); }
+  };
+
+  const handleDelete = async (id, name) => {
+    if (!confirm(`"${name}" KOL을 삭제하시겠습니까?`)) return;
+    try {
+      await fetch(`/api/kol/profiles/${id}`, { method: 'DELETE' });
+      loadProfiles();
+    } catch (err) { alert('삭제 실패'); }
+  };
+
+  const tierColors = { 'A':'bg-purple-100 text-purple-700', 'B':'bg-blue-100 text-blue-700', 'C':'bg-teal-100 text-teal-700', 'D':'bg-gray-100 text-gray-500' };
+
+  return (
+    <div className="space-y-5 lg:space-y-6 animate-fadeInUp">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs text-gray-500 mt-1">등록된 KOL: <span className="font-bold text-primary-600">{profiles.length}명</span></p>
+        </div>
+        <button onClick={() => { setShowForm(true); setEditingId(null); setForm({ name:'', hospital:'', department:'', position:'', specialty_tags:'', kol_tier:'C', persona:'Neutral', prescription_pattern:'Moderate', strategy_memo:'', visit_notes:'' }); }}
+          className="px-4 py-2.5 bg-gradient-to-r from-primary-800 to-primary-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg transition-all">
+          <i className="fas fa-plus mr-1.5"></i> 새 KOL 등록
+        </button>
+      </div>
+
+      {/* Registration/Edit Form */}
+      {showForm && (
+        <div className="bg-white rounded-2xl p-5 lg:p-6 shadow-sm border border-primary-200 animate-fadeInUp">
+          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <i className={`fas ${editingId ? 'fa-edit' : 'fa-user-plus'} text-primary-500`}></i>
+            {editingId ? 'KOL 정보 수정' : '새 KOL 등록'}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium text-gray-600">이름 <span className="text-red-500">*</span></label>
+              <input type="text" value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="정성진" className="w-full mt-1 px-3 py-2.5 rounded-xl border border-surface-200 text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">소속 병원 <span className="text-red-500">*</span></label>
+              <input type="text" value={form.hospital} onChange={e => setForm({...form, hospital:e.target.value})} placeholder="분당서울대학교병원" className="w-full mt-1 px-3 py-2.5 rounded-xl border border-surface-200 text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">진료과 <span className="text-red-500">*</span></label>
+              <input type="text" value={form.department} onChange={e => setForm({...form, department:e.target.value})} placeholder="비뇨의학과" className="w-full mt-1 px-3 py-2.5 rounded-xl border border-surface-200 text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">직위</label>
+              <input type="text" value={form.position} onChange={e => setForm({...form, position:e.target.value})} placeholder="교수" className="w-full mt-1 px-3 py-2.5 rounded-xl border border-surface-200 text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">전문 분야 (쉼표 구분)</label>
+              <input type="text" value={form.specialty_tags} onChange={e => setForm({...form, specialty_tags:e.target.value})} placeholder="배뇨장애, 전립선비대증, 과민성방광" className="w-full mt-1 px-3 py-2.5 rounded-xl border border-surface-200 text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-xs font-medium text-gray-600">KOL Tier</label>
+                <select value={form.kol_tier} onChange={e => setForm({...form, kol_tier:e.target.value})} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-surface-200 text-sm focus:border-primary-400 outline-none">
+                  <option value="A">Tier A</option><option value="B">Tier B</option><option value="C">Tier C</option><option value="D">Tier D</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600">Persona</label>
+                <select value={form.persona} onChange={e => setForm({...form, persona:e.target.value})} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-surface-200 text-sm focus:border-primary-400 outline-none">
+                  <option value="Champion">Champion</option><option value="Advocate">Advocate</option><option value="Supporter">Supporter</option><option value="Neutral">Neutral</option><option value="Non-Adopter">Non-Adopter</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600">처방 패턴</label>
+                <select value={form.prescription_pattern} onChange={e => setForm({...form, prescription_pattern:e.target.value})} className="w-full mt-1 px-3 py-2.5 rounded-xl border border-surface-200 text-sm focus:border-primary-400 outline-none">
+                  <option value="High Adopter">High Adopter</option><option value="Moderate">Moderate</option><option value="Conservative">Conservative</option>
+                </select>
+              </div>
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-xs font-medium text-gray-600">전략 메모</label>
+              <textarea value={form.strategy_memo} onChange={e => setForm({...form, strategy_memo:e.target.value})} rows={3} placeholder="이 KOL에 대한 영업 전략, 관계 히스토리, 주의사항 등을 자유롭게 기록하세요" className="w-full mt-1 px-3 py-2.5 rounded-xl border border-surface-200 text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none resize-none" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-xs font-medium text-gray-600">방문 전략 메모</label>
+              <textarea value={form.visit_notes} onChange={e => setForm({...form, visit_notes:e.target.value})} rows={2} placeholder="최적 방문 시간대, 선호하는 미팅 방식, 주의할 점 등" className="w-full mt-1 px-3 py-2.5 rounded-xl border border-surface-200 text-sm focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none resize-none" />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 mt-5">
+            <button onClick={handleSubmit} className="px-5 py-2.5 bg-primary-800 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors">
+              <i className="fas fa-save mr-1.5"></i>{editingId ? '수정 저장' : '등록'}
+            </button>
+            <button onClick={() => { setShowForm(false); setEditingId(null); }} className="px-5 py-2.5 bg-surface-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-surface-200 transition-colors">취소</button>
+          </div>
+        </div>
+      )}
+
+      {/* Profile List */}
+      {loading ? (
+        <div className="bg-white rounded-2xl p-10 shadow-sm border border-surface-200/60 text-center">
+          <i className="fas fa-spinner fa-spin text-2xl text-primary-400 mb-3"></i>
+          <p className="text-sm text-gray-400">KOL 목록을 불러오는 중...</p>
+        </div>
+      ) : profiles.length === 0 ? (
+        <div className="bg-white rounded-2xl p-10 shadow-sm border border-surface-200/60 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-surface-50 flex items-center justify-center"><i className="fas fa-database text-2xl text-gray-200"></i></div>
+          <h3 className="text-base font-bold text-gray-800">등록된 KOL이 없습니다</h3>
+          <p className="text-sm text-gray-400 mt-1">위 "새 KOL 등록" 버튼으로 첫 KOL을 등록하세요</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {profiles.map(p => {
+            const tags = typeof p.specialty_tags === 'string' ? (() => { try { return JSON.parse(p.specialty_tags); } catch { return []; } })() : (p.specialty_tags || []);
+            return (
+              <div key={p.id} className="bg-white rounded-2xl p-5 shadow-sm border border-surface-200/60 hover:shadow-md hover:border-primary-200 transition-all duration-200">
+                <div className="flex items-start gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-400 to-cyan-300 flex items-center justify-center text-green-900 text-base font-bold flex-shrink-0">{p.name?.slice(-1)}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-bold text-gray-900 text-sm">{p.name}</h4>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${tierColors[p.kol_tier] || tierColors['C']}`}>Tier {p.kol_tier}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">{p.persona}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">{p.hospital} | {p.department} | {p.position}</p>
+                    {tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {tags.slice(0, 4).map((t, i) => <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-primary-50 text-primary-600">{t}</span>)}
+                        {tags.length > 4 && <span className="text-[10px] text-gray-400">+{tags.length - 4}</span>}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3 mt-3 text-xs text-gray-400">
+                      <span><i className="fas fa-file-lines mr-1"></i>논문 {p.publications_count || 0}</span>
+                      <span><i className="fas fa-chart-simple mr-1"></i>H-Index {p.h_index || 0}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <button onClick={() => handleEdit(p.id)} className="w-8 h-8 rounded-lg bg-surface-50 flex items-center justify-center text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors">
+                      <i className="fas fa-pen text-xs"></i>
+                    </button>
+                    <button onClick={() => handleDelete(p.id, p.name)} className="w-8 h-8 rounded-lg bg-surface-50 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                      <i className="fas fa-trash text-xs"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -824,7 +1163,6 @@ function PricingPage() {
           ))}
         </div>
       </div>
-
     </div>
   );
 }
@@ -846,6 +1184,7 @@ function App() {
     switch (currentPage) {
       case 'dashboard': return <Dashboard onNavigateToKOL={handleNavigateToKOL} />;
       case 'kol': return <KOLIntelligence key={kolSearchQuery} initialQuery={kolSearchQuery} />;
+      case 'koldb': return <KOLDatabase />;
       case 'pnt': return <PnTStrategy />;
       case 'pricing': return <PricingPage />;
       default: return <Dashboard onNavigateToKOL={handleNavigateToKOL} />;
