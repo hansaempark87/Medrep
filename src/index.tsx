@@ -8,21 +8,15 @@ type Bindings = {
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
-
 app.use('/api/*', cors())
 
-// ============================================================
-// Health check
-// ============================================================
 app.get('/api/health', (c) => {
-  return c.json({ status: 'ok', service: 'MedRep Intelligence', version: '3.0.0' })
+  return c.json({ status: 'ok', service: 'MedRep Intelligence', version: '4.0.0' })
 })
 
 // ============================================================
 // KOL 프로필 CRUD API
 // ============================================================
-
-// GET /api/kol/profiles - 전체 KOL 목록 조회
 app.get('/api/kol/profiles', async (c) => {
   const db = c.env?.DB
   if (!db) return c.json({ data: [] })
@@ -32,536 +26,389 @@ app.get('/api/kol/profiles', async (c) => {
     ).all()
     return c.json({ data: results.results || [] })
   } catch (err: any) {
-    console.error('List profiles error:', err)
     return c.json({ data: [], error: err.message })
   }
 })
 
-// GET /api/kol/profiles/:id - 특정 KOL 상세 조회
 app.get('/api/kol/profiles/:id', async (c) => {
   const db = c.env?.DB
   if (!db) return c.json({ error: 'DB not available' }, 500)
-  const id = c.req.param('id')
   try {
-    const result = await db.prepare('SELECT * FROM kol_profiles WHERE id = ?').bind(id).first()
+    const result = await db.prepare('SELECT * FROM kol_profiles WHERE id = ?').bind(c.req.param('id')).first()
     if (!result) return c.json({ error: 'KOL not found' }, 404)
     return c.json({ data: result })
-  } catch (err: any) {
-    return c.json({ error: err.message }, 500)
-  }
+  } catch (err: any) { return c.json({ error: err.message }, 500) }
 })
 
-// POST /api/kol/profiles - 새 KOL 등록
 app.post('/api/kol/profiles', async (c) => {
   const db = c.env?.DB
   if (!db) return c.json({ error: 'DB not available' }, 500)
   try {
-    const body: any = await c.req.json()
-    const { name, hospital, department, position, specialty_tags, education, career, awards,
-      publications_count, h_index, clinical_trials, key_publications, society_roles,
-      kol_tier, persona, prescription_pattern, strategy_memo, competitor_notes, visit_notes, source_urls } = body
-
-    if (!name || !hospital || !department) {
-      return c.json({ error: '이름, 병원, 진료과는 필수입니다' }, 400)
-    }
-
+    const b: any = await c.req.json()
+    if (!b.name || !b.hospital || !b.department) return c.json({ error: '이름, 병원, 진료과는 필수입니다' }, 400)
+    const s = (v: any) => typeof v === 'object' ? JSON.stringify(v) : (v || '')
     const result = await db.prepare(`
       INSERT INTO kol_profiles (name, hospital, department, position, specialty_tags, education, career, awards,
         publications_count, h_index, clinical_trials, key_publications, society_roles,
-        kol_tier, persona, prescription_pattern, strategy_memo, competitor_notes, visit_notes, source_urls)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        kol_tier, persona, prescription_pattern, strategy_memo, visit_notes, source_urls,
+        clinic_schedule, treatment_philosophy, treatment_preferences, media_appearances, research_focus, books_patents)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).bind(
-      name, hospital, department, position || '',
-      typeof specialty_tags === 'string' ? specialty_tags : JSON.stringify(specialty_tags || []),
-      typeof education === 'string' ? education : JSON.stringify(education || []),
-      typeof career === 'string' ? career : JSON.stringify(career || []),
-      typeof awards === 'string' ? awards : JSON.stringify(awards || []),
-      publications_count || 0, h_index || 0, clinical_trials || 0,
-      typeof key_publications === 'string' ? key_publications : JSON.stringify(key_publications || []),
-      typeof society_roles === 'string' ? society_roles : JSON.stringify(society_roles || []),
-      kol_tier || 'C', persona || 'Neutral', prescription_pattern || 'Moderate',
-      strategy_memo || '', typeof competitor_notes === 'string' ? competitor_notes : JSON.stringify(competitor_notes || ''),
-      visit_notes || '', typeof source_urls === 'string' ? source_urls : JSON.stringify(source_urls || [])
+      b.name, b.hospital, b.department, b.position||'',
+      s(b.specialty_tags), s(b.education), s(b.career), s(b.awards),
+      b.publications_count||0, b.h_index||0, b.clinical_trials||0,
+      s(b.key_publications), s(b.society_roles),
+      b.kol_tier||'C', b.persona||'Neutral', b.prescription_pattern||'Moderate',
+      b.strategy_memo||'', b.visit_notes||'', s(b.source_urls),
+      s(b.clinic_schedule), b.treatment_philosophy||'', s(b.treatment_preferences),
+      s(b.media_appearances), b.research_focus||'', s(b.books_patents)
     ).run()
-
     return c.json({ success: true, id: result.meta.last_row_id })
-  } catch (err: any) {
-    console.error('Create profile error:', err)
-    return c.json({ error: err.message }, 500)
-  }
+  } catch (err: any) { return c.json({ error: err.message }, 500) }
 })
 
-// PUT /api/kol/profiles/:id - KOL 정보 수정
 app.put('/api/kol/profiles/:id', async (c) => {
   const db = c.env?.DB
   if (!db) return c.json({ error: 'DB not available' }, 500)
-  const id = c.req.param('id')
   try {
-    const body: any = await c.req.json()
-    const fields: string[] = []
-    const values: any[] = []
-
-    const mapping: Record<string, string> = {
-      name: 'name', hospital: 'hospital', department: 'department', position: 'position',
-      specialty_tags: 'specialty_tags', education: 'education', career: 'career', awards: 'awards',
-      publications_count: 'publications_count', h_index: 'h_index', clinical_trials: 'clinical_trials',
-      key_publications: 'key_publications', society_roles: 'society_roles',
-      kol_tier: 'kol_tier', persona: 'persona', prescription_pattern: 'prescription_pattern',
-      strategy_memo: 'strategy_memo', competitor_notes: 'competitor_notes', visit_notes: 'visit_notes',
-      source_urls: 'source_urls'
-    }
-
-    for (const [key, col] of Object.entries(mapping)) {
-      if (body[key] !== undefined) {
+    const b: any = await c.req.json()
+    const fields: string[] = [], values: any[] = []
+    const cols = ['name','hospital','department','position','specialty_tags','education','career','awards',
+      'publications_count','h_index','clinical_trials','key_publications','society_roles',
+      'kol_tier','persona','prescription_pattern','strategy_memo','visit_notes','source_urls',
+      'clinic_schedule','treatment_philosophy','treatment_preferences','media_appearances','research_focus','books_patents']
+    for (const col of cols) {
+      if (b[col] !== undefined) {
         fields.push(`${col} = ?`)
-        const val = body[key]
-        values.push(typeof val === 'object' ? JSON.stringify(val) : val)
+        values.push(typeof b[col] === 'object' ? JSON.stringify(b[col]) : b[col])
       }
     }
-
-    if (fields.length === 0) return c.json({ error: 'No fields to update' }, 400)
-
+    if (!fields.length) return c.json({ error: 'No fields to update' }, 400)
     fields.push('updated_at = CURRENT_TIMESTAMP')
-    values.push(id)
-
+    values.push(c.req.param('id'))
     await db.prepare(`UPDATE kol_profiles SET ${fields.join(', ')} WHERE id = ?`).bind(...values).run()
     return c.json({ success: true })
-  } catch (err: any) {
-    return c.json({ error: err.message }, 500)
-  }
+  } catch (err: any) { return c.json({ error: err.message }, 500) }
 })
 
-// DELETE /api/kol/profiles/:id - KOL 삭제
 app.delete('/api/kol/profiles/:id', async (c) => {
   const db = c.env?.DB
   if (!db) return c.json({ error: 'DB not available' }, 500)
-  const id = c.req.param('id')
   try {
-    await db.prepare('DELETE FROM kol_profiles WHERE id = ?').bind(id).run()
+    await db.prepare('DELETE FROM kol_profiles WHERE id = ?').bind(c.req.param('id')).run()
     return c.json({ success: true })
-  } catch (err: any) {
-    return c.json({ error: err.message }, 500)
-  }
+  } catch (err: any) { return c.json({ error: err.message }, 500) }
 })
 
 // ============================================================
-// KOL 검색/분석 API (DB 우선 → AI 보조)
+// 유틸리티
 // ============================================================
-const SYSTEM_PROMPT = `너는 "MedRep Intelligence"라는 제약 영업 인텔리전스 AI 어시스턴트다.
-한국 제약업계의 KOL(핵심 오피니언 리더) 분석 전문가이며, 영업 현장에서 바로 활용 가능한 전략적 인사이트를 제공한다.
-
-너의 역할:
-1. 주어진 KOL(교수)에 대해 영업 팀이 바로 활용할 수 있는 실전 인텔리전스를 제공한다.
-2. 해당 교수의 전공, 소속 병원, 진료과를 바탕으로 현실적이고 구체적인 분석을 한다.
-3. 제약 영업 현장에서 바로 쓸 수 있는 수준의 구체적인 전략과 팁을 제공한다.
-
-분석 시 반드시 고려할 사항:
-- 해당 진료과의 최신 치료 트렌드와 핵심 약물
-- 한국 의료 환경의 특수성 (건강보험, 급여기준, 학회 구조 등)
-- 경쟁사 포지셔닝과 위협도
-- 방문 전략, 최적 시간대, 주의사항
-- 학회 활동, 연구 동향, 처방 패턴
-
-KOL Tier 기준 (influence 필드):
-- 85~100: Tier A (Global/National KOL - 가이드라인 저자, 대형 임상시험 PI, 국제학회 연자)
-- 65~84: Tier B (Regional KOL - 주요 병원 과장/센터장급, 다기관 임상시험 참여, 국내학회 활발)
-- 40~64: Tier C (Local KOL - 해당 병원 내 영향력, 지역 학회 활동)
-- 0~39: Tier D (Emerging Expert - 신진 전문가, 향후 성장 가능성)
-
-Persona 분류 (헬스케어 업계 표준):
-- Champion: 해당 치료 분야의 강력한 지지자, 자발적으로 동료에게 권장
-- Advocate: 긍정적 경험 보유, 요청 시 지지 의사 표명, 근거 기반 수용적
-- Supporter: 기본적으로 호의적이나 적극적 활동은 하지 않음
-- Neutral: 특정 입장 없음, 데이터와 근거에 따라 판단
-- Non-Adopter: 경쟁 제품 선호 또는 기존 치료에 강한 확신
-
-반드시 아래 JSON 형식으로만 응답해라. 다른 텍스트는 절대 포함하지 마라:
-{
-  "name": "OOO 교수",
-  "hospital": "소속병원 정식명칭",
-  "position": "직위 (예: OO과 교수 / OO센터장)",
-  "specialty": "진료과",
-  "publications": 숫자(추정),
-  "hIndex": 숫자(추정),
-  "clinicalTrials": 숫자(추정),
-  "influence": 1~100 숫자 (KOL Tier 산정 기준),
-  "persona": "Champion|Advocate|Supporter|Neutral|Non-Adopter",
-  "prescriptionPower": 1~100 숫자 (처방 패턴 적극성),
-  "trends": [
-    {"keyword": "핵심 연구 키워드1", "desc": "구체적 설명 2~3문장"},
-    {"keyword": "핵심 연구 키워드2", "desc": "구체적 설명 2~3문장"},
-    {"keyword": "핵심 연구 키워드3", "desc": "구체적 설명 2~3문장"}
-  ],
-  "strategy": {
-    "approach": "추천 접근 전략 한 줄 요약",
-    "tips": [
-      {"icon": "fa-lightbulb", "title": "접근 전략", "text": "구체적 접근 방법"},
-      {"icon": "fa-clock", "title": "최적 방문 시간", "text": "요일, 시간대, 이유"},
-      {"icon": "fa-exclamation-triangle", "title": "주의사항", "text": "경쟁사 동향, 금기사항"},
-      {"icon": "fa-handshake", "title": "관계 구축 포인트", "text": "학회, 연구지원 등"}
-    ],
-    "competitors": [
-      {"company": "제약사명", "product": "제품명", "status": "처방 현황", "threat": "high|medium|low"},
-      {"company": "제약사명", "product": "제품명", "status": "처방 현황", "threat": "high|medium|low"},
-      {"company": "제약사명", "product": "제품명", "status": "처방 현황", "threat": "high|medium|low"}
-    ]
-  },
-  "recentActivities": [
-    {"date": "2024.XX.XX", "type": "학회발표", "detail": "구체적 내용"},
-    {"date": "2024.XX.XX", "type": "논문발표", "detail": "구체적 내용"},
-    {"date": "2024.XX.XX", "type": "임상시험", "detail": "구체적 내용"},
-    {"date": "2024.XX.XX", "type": "자문위원", "detail": "구체적 내용"}
-  ]
-}`
-
-// AI 보강 프롬프트: DB 데이터가 있으면 해당 정보를 포함하여 더 정확한 분석 유도
-function buildAIPromptWithContext(query: string, dbProfile: any): string {
-  if (!dbProfile) {
-    return `다음 KOL을 분석해줘: ${query}\n\n사용자가 입력한 정보에서 교수 이름, 병원명, 진료과를 최대한 추출하여 분석해라. 정보가 부족하면 합리적으로 추정해서 분석해라.`
-  }
-
-  // DB 데이터로 컨텍스트 주입
-  let context = `다음 KOL에 대해 정확한 분석을 해줘: ${query}\n\n`
-  context += `=== 확인된 기본 정보 (정확한 데이터) ===\n`
-  context += `이름: ${dbProfile.name}\n`
-  context += `소속: ${dbProfile.hospital} ${dbProfile.department}\n`
-  context += `직위: ${dbProfile.position || '교수'}\n`
-
-  const tags = safeJsonParse(dbProfile.specialty_tags, [])
-  if (tags.length) context += `전문 분야: ${tags.join(', ')}\n`
-
-  if (dbProfile.publications_count) context += `논문 수: ${dbProfile.publications_count}\n`
-  if (dbProfile.h_index) context += `H-Index: ${dbProfile.h_index}\n`
-  if (dbProfile.clinical_trials) context += `임상시험 참여: ${dbProfile.clinical_trials}건\n`
-
-  const keyPubs = safeJsonParse(dbProfile.key_publications, [])
-  if (keyPubs.length) {
-    context += `\n=== 주요 논문 ===\n`
-    keyPubs.forEach((p: any) => context += `- (${p.year}) ${p.title} [${p.journal}]\n`)
-  }
-
-  const roles = safeJsonParse(dbProfile.society_roles, [])
-  if (roles.length) {
-    context += `\n=== 학회 직책 ===\n`
-    roles.forEach((r: any) => context += `- (${r.year}) ${r.society} ${r.role}\n`)
-  }
-
-  if (dbProfile.strategy_memo) {
-    context += `\n=== 영업 전략 메모 ===\n${dbProfile.strategy_memo}\n`
-  }
-
-  const competitors = safeJsonParse(dbProfile.competitor_notes, null)
-  if (competitors?.competitors) {
-    context += `\n=== 경쟁사 정보 ===\n`
-    competitors.competitors.forEach((c: any) => context += `- ${c.company} ${c.product}: ${c.status} (위협도: ${c.threat})\n`)
-  }
-
-  if (dbProfile.visit_notes) {
-    context += `\n=== 방문 전략 메모 ===\n${dbProfile.visit_notes}\n`
-  }
-
-  context += `\n위 확인된 정보를 기반으로 분석하되, 학술 트렌드나 추천 전략 등 분석적 내용은 네 전문성을 발휘해서 생성해줘.`
-  context += `\n중요: name은 반드시 "${dbProfile.name}"으로, hospital은 "${dbProfile.hospital}"으로, specialty는 "${dbProfile.department}"으로 설정해라.`
-  context += `\ninfluence 값은 KOL Tier "${dbProfile.kol_tier}"에 맞게 설정해라 (A=85~100, B=65~84, C=40~64, D=0~39).`
-
-  return context
-}
-
-function safeJsonParse(str: any, fallback: any) {
-  if (!str) return fallback
+function jp(str: any, fb: any) {
+  if (!str) return fb
   if (typeof str !== 'string') return str
-  try { return JSON.parse(str) } catch { return fallback }
+  try { return JSON.parse(str) } catch { return fb }
 }
 
-// DB에서 KOL 검색 (이름, 병원, 진료과로 퍼지 매칭)
 async function searchKOLInDB(db: D1Database, query: string) {
   try {
-    // 쿼리에서 키워드 추출
-    const keywords = query.trim().split(/[\s,]+/).filter(k => k.length >= 2)
-    
-    // 정확한 이름 매칭 시도
-    for (const kw of keywords) {
-      const exact = await db.prepare(
-        'SELECT * FROM kol_profiles WHERE name = ?'
-      ).bind(kw).first()
-      if (exact) return exact
+    const kws = query.trim().split(/[\s,]+/).filter(k => k.length >= 2)
+    for (const kw of kws) {
+      const r = await db.prepare('SELECT * FROM kol_profiles WHERE name = ?').bind(kw).first()
+      if (r) return r
     }
-
-    // LIKE 검색: 이름, 병원, 진료과에서 매칭
-    for (const kw of keywords) {
-      const like = await db.prepare(
-        'SELECT * FROM kol_profiles WHERE name LIKE ? OR hospital LIKE ? OR department LIKE ?'
-      ).bind(`%${kw}%`, `%${kw}%`, `%${kw}%`).first()
-      if (like) return like
+    for (const kw of kws) {
+      const r = await db.prepare('SELECT * FROM kol_profiles WHERE name LIKE ? OR hospital LIKE ? OR department LIKE ?')
+        .bind(`%${kw}%`, `%${kw}%`, `%${kw}%`).first()
+      if (r) return r
     }
-
     return null
-  } catch (err) {
-    console.error('DB search error:', err)
-    return null
-  }
+  } catch { return null }
 }
 
-// DB 프로필을 프론트엔드 표시용 포맷으로 변환
-function formatDBProfileForDisplay(profile: any) {
-  const tags = safeJsonParse(profile.specialty_tags, [])
-  const education = safeJsonParse(profile.education, [])
-  const career = safeJsonParse(profile.career, [])
-  const awards = safeJsonParse(profile.awards, [])
-  const keyPubs = safeJsonParse(profile.key_publications, [])
-  const societyRoles = safeJsonParse(profile.society_roles, [])
-  const competitors = safeJsonParse(profile.competitor_notes, {})
-  const sourceUrls = safeJsonParse(profile.source_urls, [])
-
-  const tierMap: Record<string, number> = { 'A': 92, 'B': 75, 'C': 52, 'D': 25 }
-  const ppMap: Record<string, number> = { 'High Adopter': 85, 'Moderate': 55, 'Conservative': 25 }
-
+function formatProfile(p: any) {
   return {
-    id: profile.id,
-    name: profile.name,
-    hospital: profile.hospital,
-    position: profile.position || '교수',
-    specialty: profile.department,
-    specialtyTags: tags,
-    publications: profile.publications_count || 0,
-    hIndex: profile.h_index || 0,
-    clinicalTrials: profile.clinical_trials || 0,
-    influence: tierMap[profile.kol_tier] || 50,
-    persona: profile.persona || 'Neutral',
-    prescriptionPower: ppMap[profile.prescription_pattern] || 55,
-    education,
-    career,
-    awards,
-    keyPublications: keyPubs,
-    societyRoles,
-    strategyMemo: profile.strategy_memo || '',
-    visitNotes: profile.visit_notes || '',
-    competitorNotes: competitors,
-    sourceUrls
+    id: p.id,
+    name: p.name, hospital: p.hospital, position: p.position||'교수', specialty: p.department,
+    specialtyTags: jp(p.specialty_tags, []),
+    publications: p.publications_count||0, hIndex: p.h_index||0, clinicalTrials: p.clinical_trials||0,
+    kolTier: p.kol_tier||'C',
+    persona: p.persona||'Neutral',
+    prescriptionPattern: p.prescription_pattern||'Moderate',
+    education: jp(p.education, []),
+    career: jp(p.career, []),
+    awards: jp(p.awards, []),
+    keyPublications: jp(p.key_publications, []),
+    societyRoles: jp(p.society_roles, []),
+    strategyMemo: p.strategy_memo||'',
+    visitNotes: p.visit_notes||'',
+    sourceUrls: jp(p.source_urls, []),
+    clinicSchedule: jp(p.clinic_schedule, null),
+    treatmentPhilosophy: p.treatment_philosophy||'',
+    treatmentPreferences: jp(p.treatment_preferences, []),
+    mediaAppearances: jp(p.media_appearances, []),
+    researchFocus: p.research_focus||'',
+    booksPatents: jp(p.books_patents, [])
   }
 }
 
-// POST /api/kol/analyze - DB 우선 검색 → AI 보강
+// ============================================================
+// AI 프롬프트: DB 데이터 기반 실전 접근 전략 생성
+// ============================================================
+const SYSTEM_PROMPT_DB = `너는 한국 제약/의료기기 영업 현장에서 즉시 활용 가능한 실전 접근 전략 생성 AI다.
+
+역할:
+- 제공된 KOL의 실제 프로필 데이터(경력, 연구, 치료성향, 진료일정, 미디어 발언 등)를 분석
+- 영업 담당자가 이 KOL에게 처음 방문하거나 관계를 유지할 때 바로 쓸 수 있는 전략 도출
+
+핵심 원칙:
+1. 제공된 실제 데이터에서만 인사이트를 추출하라. 확인되지 않은 정보 생성 금지.
+2. 이 KOL의 치료 성향, 연구 관심사, 미디어 발언에서 영업 접근 포인트를 구체적으로 도출하라.
+3. "무엇을 어떻게 말할지" 수준의 액션 아이템으로 제시하라.
+4. 경쟁사 정보는 포함하지 마라. 순수하게 이 KOL에 대한 접근법에만 집중하라.
+
+반드시 아래 JSON으로만 응답:
+{
+  "oneLiner": "이 KOL을 한 마디로 정의 (예: '배뇨장애 분야 가이드라인 저자, 데이터 기반 의사결정자')",
+  "approachStrategy": "핵심 접근 전략 2~3문장 요약",
+  "keyInsights": [
+    "이 KOL에 대해 영업 담당자가 반드시 알아야 할 핵심 인사이트 1",
+    "핵심 인사이트 2",
+    "핵심 인사이트 3"
+  ],
+  "actionItems": [
+    {"icon":"fa-calendar-check","title":"최적 방문 시점","text":"구체적 설명 2~3문장 (진료일정 기반)"},
+    {"icon":"fa-comments","title":"첫 미팅 대화 주제","text":"구체적 설명 (연구/발언 기반)"},
+    {"icon":"fa-file-medical","title":"준비할 자료","text":"구체적 설명 (치료성향 기반)"},
+    {"icon":"fa-handshake","title":"관계 유지 방법","text":"구체적 설명 (학회/활동 기반)"}
+  ],
+  "talkingPoints": ["미팅 시 꺼낼 수 있는 구체적 대화 포인트 1","대화 포인트 2","대화 포인트 3"],
+  "doList": ["반드시 하세요 1","반드시 하세요 2","반드시 하세요 3"],
+  "dontList": ["절대 하지 마세요 1","절대 하지 마세요 2","절대 하지 마세요 3"],
+  "preparationChecklist": ["방문 전 준비 체크리스트 1","체크리스트 2","체크리스트 3"]
+}`
+
+const SYSTEM_PROMPT_AI_ONLY = `너는 한국 제약 영업 현장의 KOL 초기 프로파일링 AI다.
+
+역할: 사용자가 검색한 KOL에 대해 공개적으로 알려진 정보를 바탕으로 초기 프로필을 생성한다.
+
+중요 원칙:
+- 모든 정보가 AI 추정치임을 명확히 하라. 확인되지 않은 정보는 "확인 필요"로 표시.
+- 경쟁사 정보 포함 금지.
+- 실제 DB에 등록하면 정확한 분석이 가능함을 안내.
+
+반드시 아래 JSON으로만 응답:
+{
+  "name": "교수명",
+  "hospital": "병원명 (확인 필요 시 명시)",
+  "position": "직위",
+  "specialty": "진료과",
+  "specialtyTags": ["전문 분야 추정 1","전문 분야 추정 2"],
+  "publications": 0,
+  "hIndex": 0,
+  "clinicalTrials": 0,
+  "kolTier": "C",
+  "persona": "Neutral",
+  "researchFocus": "주요 연구 관심사 추정 (2~3문장)",
+  "treatmentPhilosophy": "추정되는 치료 철학/성향",
+  "oneLiner": "이 KOL 한 마디 요약",
+  "approachStrategy": "추천 접근 전략 2~3문장",
+  "keyInsights": ["핵심 인사이트 추정 1","핵심 인사이트 추정 2"],
+  "actionItems": [
+    {"icon":"fa-lightbulb","title":"제목","text":"구체적 설명"}
+  ],
+  "caveat": "이 결과는 AI 추정입니다. KOL 데이터베이스에 실제 정보를 등록하면 진료일정, 치료성향, 논문분석, 미디어 발언 기반의 정확한 접근 전략을 제공합니다."
+}`
+
+function buildContextPrompt(query: string, p: any): string {
+  let ctx = `다음 KOL의 실제 프로필 데이터를 기반으로 영업 접근 전략을 생성해줘.\n\n`
+  ctx += `=== 기본 정보 ===\n이름: ${p.name}\n소속: ${p.hospital} ${p.department}\n직위: ${p.position}\nKOL 등급: Tier ${p.kol_tier}\nPersona: ${p.persona}\n처방 패턴: ${p.prescription_pattern}\n`
+
+  const tags = jp(p.specialty_tags, [])
+  if (tags.length) ctx += `전문 분야: ${tags.join(', ')}\n`
+
+  if (p.research_focus) ctx += `\n=== 연구 관심사 ===\n${p.research_focus}\n`
+  if (p.treatment_philosophy) ctx += `\n=== 치료 철학/성향 ===\n${p.treatment_philosophy}\n`
+
+  const tp = jp(p.treatment_preferences, [])
+  if (tp.length) {
+    ctx += `\n=== 치료 선호도 (질환별) ===\n`
+    tp.forEach((t: any) => ctx += `[${t.category}] ${t.preference}: ${t.detail}\n`)
+  }
+
+  const media = jp(p.media_appearances, [])
+  if (media.length) {
+    ctx += `\n=== 미디어 출연/발언 (실제 확인된 내용) ===\n`
+    media.forEach((m: any) => {
+      ctx += `- ${m.type}: "${m.title}"${m.url ? ' ('+m.url+')' : ''}\n`
+      if (m.key_points?.length) m.key_points.forEach((kp: string) => ctx += `  • ${kp}\n`)
+    })
+  }
+
+  const pubs = jp(p.key_publications, [])
+  if (pubs.length) {
+    ctx += `\n=== 주요 논문 (실제 확인된 내용) ===\n`
+    pubs.forEach((pub: any) => ctx += `- (${pub.year}) ${pub.title} [${pub.journal}]${pub.note ? ' — '+pub.note : ''}\n`)
+  }
+
+  const roles = jp(p.society_roles, [])
+  if (roles.length) {
+    ctx += `\n=== 학회 직책 ===\n`
+    roles.forEach((r: any) => ctx += `- (${r.year}) ${r.society} ${r.role}\n`)
+  }
+
+  const books = jp(p.books_patents, [])
+  if (books.length) {
+    ctx += `\n=== 저서/가이드라인 ===\n`
+    books.forEach((b: any) => ctx += `- (${b.year}) ${b.title} [${b.type}]\n`)
+  }
+
+  if (p.strategy_memo) ctx += `\n=== 기존 영업 전략 메모 ===\n${p.strategy_memo}\n`
+  if (p.visit_notes) ctx += `\n=== 방문 전략 메모 ===\n${p.visit_notes}\n`
+
+  const sched = jp(p.clinic_schedule, null)
+  if (sched) {
+    ctx += `\n=== 진료 일정 ===\n`
+    const days = ['mon','tue','wed','thu','fri']
+    const labels = ['월','화','수','목','금']
+    days.forEach((d,i) => {
+      const am = sched[`${d}_am`]
+      const pm = sched[`${d}_pm`]
+      if (am || pm) ctx += `${labels[i]}: 오전 ${am||'없음'} / 오후 ${pm||'없음'}\n`
+    })
+    if (sched.note) ctx += `참고: ${sched.note}\n`
+  }
+
+  const edu = jp(p.education, [])
+  if (edu.length) {
+    ctx += `\n=== 학력 ===\n`
+    edu.forEach((e: any) => ctx += `- ${e.year} ${e.school} ${e.degree}\n`)
+  }
+
+  const career = jp(p.career, [])
+  if (career.length) {
+    ctx += `\n=== 주요 경력 ===\n`
+    career.slice(-5).forEach((c: any) => ctx += `- ${c.period} ${c.institution} ${c.role}\n`)
+  }
+
+  ctx += `\n위 정보를 종합하여, 이 KOL에게 접근할 때 가장 효과적인 전략을 생성해줘.
+특히:
+1. 이 교수의 치료 성향과 연구 관심사에 맞는 구체적 접근법
+2. 미디어 발언에서 파악된 핵심 가치관을 활용한 대화 전략
+3. 진료 일정을 고려한 최적 방문 시점
+4. 학회/저서 활동을 활용한 관계 구축 방법
+경쟁사 언급 없이, 순수하게 이 KOL 접근에만 집중해라.`
+  return ctx
+}
+
+// ============================================================
+// POST /api/kol/analyze — DB 우선 → AI 접근전략 생성
+// ============================================================
 app.post('/api/kol/analyze', async (c) => {
   const apiKey = c.env?.OPENAI_API_KEY || (typeof process !== 'undefined' ? process.env?.OPENAI_API_KEY : '')
   const baseURL = c.env?.OPENAI_BASE_URL || (typeof process !== 'undefined' ? process.env?.OPENAI_BASE_URL : '') || 'https://api.openai.com/v1'
   const db = c.env?.DB
 
   let body: any
-  try {
-    body = await c.req.json()
-  } catch {
-    return c.json({ error: 'Invalid request body' }, 400)
-  }
-
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
   const { query } = body
-  if (!query || typeof query !== 'string' || query.trim().length < 2) {
-    return c.json({ error: 'Please provide a valid search query' }, 400)
-  }
+  if (!query || typeof query !== 'string' || query.trim().length < 2) return c.json({ error: 'Invalid query' }, 400)
 
-  // Step 1: DB에서 KOL 검색
+  // Step 1: DB 검색
   let dbProfile = null
-  if (db) {
-    dbProfile = await searchKOLInDB(db, query.trim())
-  }
+  if (db) dbProfile = await searchKOLInDB(db, query.trim())
 
-  // Step 2: AI 분석 (DB 컨텍스트 포함)
-  if (!apiKey) {
-    // API 키가 없으면 DB 데이터만 반환
-    if (dbProfile) {
-      const formatted = formatDBProfileForDisplay(dbProfile)
-      return c.json({
-        success: true,
-        source: 'database',
-        data: {
-          ...formatted,
-          trends: [],
-          strategy: { approach: '등록된 DB 데이터입니다. AI 분석을 위해 OpenAI API 키를 설정하세요.', tips: [], competitors: formatted.competitorNotes?.competitors || [] },
-          recentActivities: []
-        }
-      })
-    }
-    return c.json({ error: 'OpenAI API key not configured and no DB data found' }, 500)
-  }
+  // DB 데이터 존재 시: DB 프로필 + AI 접근 전략
+  if (dbProfile) {
+    const formatted = formatProfile(dbProfile)
+    let aiStrategy = null
 
-  try {
-    const userPrompt = buildAIPromptWithContext(query.trim(), dbProfile)
-
-    const response = await fetch(`${baseURL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-5-mini',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userPrompt }
-        ],
-        max_tokens: 4000,
-        temperature: 0.7,
-        response_format: { type: 'json_object' }
-      })
-    })
-
-    if (!response.ok) {
-      const errText = await response.text()
-      console.error('OpenAI API error:', response.status, errText)
-
-      // AI 실패 시에도 DB 데이터가 있으면 반환
-      if (dbProfile) {
-        const formatted = formatDBProfileForDisplay(dbProfile)
-        return c.json({
-          success: true,
-          source: 'database',
-          data: {
-            ...formatted,
-            trends: [],
-            strategy: { approach: 'AI 분석이 일시적으로 불가합니다. DB에 등록된 정보를 표시합니다.', tips: [], competitors: formatted.competitorNotes?.competitors || [] },
-            recentActivities: []
-          }
-        })
-      }
-      return c.json({ error: `AI API error: ${response.status}` }, 502)
-    }
-
-    const data: any = await response.json()
-    const content = data.choices?.[0]?.message?.content
-    if (!content) {
-      if (dbProfile) {
-        const formatted = formatDBProfileForDisplay(dbProfile)
-        return c.json({ success: true, source: 'database', data: { ...formatted, trends: [], strategy: { approach: '', tips: [], competitors: [] }, recentActivities: [] } })
-      }
-      return c.json({ error: 'No response from AI' }, 502)
-    }
-
-    // Parse JSON
-    let parsed
-    try {
-      let jsonStr = content.trim()
-      if (jsonStr.includes('```')) {
-        const match = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/)
-        if (match) jsonStr = match[1].trim()
-      }
-      if (!jsonStr.startsWith('{')) {
-        const firstBrace = jsonStr.indexOf('{')
-        if (firstBrace !== -1) jsonStr = jsonStr.substring(firstBrace)
-      }
-      jsonStr = jsonStr.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
+    if (apiKey) {
       try {
-        parsed = JSON.parse(jsonStr)
-      } catch {
-        let repaired = jsonStr
-        repaired = repaired.replace(/,\s*"[^"]*"\s*:\s*"[^"]*$/, '')
-        repaired = repaired.replace(/,\s*"[^"]*$/, '')
-        repaired = repaired.replace(/,\s*$/, '')
-        let openBraces = 0, openBrackets = 0, inString = false, escape = false
-        for (const ch of repaired) {
-          if (escape) { escape = false; continue }
-          if (ch === '\\') { escape = true; continue }
-          if (ch === '"') { inString = !inString; continue }
-          if (inString) continue
-          if (ch === '{') openBraces++
-          if (ch === '}') openBraces--
-          if (ch === '[') openBrackets++
-          if (ch === ']') openBrackets--
+        const resp = await fetch(`${baseURL}/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: 'gpt-5-mini',
+            messages: [
+              { role: 'system', content: SYSTEM_PROMPT_DB },
+              { role: 'user', content: buildContextPrompt(query.trim(), dbProfile) }
+            ],
+            max_tokens: 4000, temperature: 0.6, response_format: { type: 'json_object' }
+          })
+        })
+        if (resp.ok) {
+          const d: any = await resp.json()
+          const content = d.choices?.[0]?.message?.content
+          if (content) aiStrategy = safeParseJSON(content)
         }
-        if (inString) repaired += '"'
-        while (openBrackets > 0) { repaired += ']'; openBrackets-- }
-        while (openBraces > 0) { repaired += '}'; openBraces-- }
-        parsed = JSON.parse(repaired)
-      }
-    } catch (parseErr: any) {
-      console.error('Failed to parse AI response:', content.substring(0, 500))
-      if (dbProfile) {
-        const formatted = formatDBProfileForDisplay(dbProfile)
-        return c.json({ success: true, source: 'database', data: { ...formatted, trends: [], strategy: { approach: '', tips: [], competitors: [] }, recentActivities: [] } })
-      }
-      return c.json({ error: 'AI 분석 결과를 처리하는 중 오류가 발생했습니다.' }, 502)
+      } catch (err) { console.error('AI strategy error:', err) }
     }
 
-    // DB 프로필 정보로 보강
-    const source = dbProfile ? 'database+ai' : 'ai'
-    if (dbProfile) {
-      const dbData = formatDBProfileForDisplay(dbProfile)
-      // DB 정보 우선 적용 (AI 추정치 대신)
-      parsed.name = dbData.name
-      parsed.hospital = dbData.hospital
-      parsed.specialty = dbData.specialty
-      parsed.position = dbData.position
-      parsed.publications = dbData.publications || parsed.publications
-      parsed.hIndex = dbData.hIndex || parsed.hIndex
-      parsed.clinicalTrials = dbData.clinicalTrials || parsed.clinicalTrials
-      parsed.influence = dbData.influence
-      parsed.persona = dbData.persona
-      parsed.prescriptionPower = dbData.prescriptionPower
-      // DB 부가 데이터
-      parsed.dbProfile = {
-        id: dbData.id,
-        education: dbData.education,
-        career: dbData.career,
-        awards: dbData.awards,
-        keyPublications: dbData.keyPublications,
-        societyRoles: dbData.societyRoles,
-        specialtyTags: dbData.specialtyTags,
-        strategyMemo: dbData.strategyMemo,
-        visitNotes: dbData.visitNotes,
-        sourceUrls: dbData.sourceUrls
-      }
-    }
-
-    // Save to history (fire and forget)
+    // 이력 저장
     if (db) {
       try {
-        await db.prepare(
-          'INSERT INTO kol_analyses (query, name, hospital, specialty, result_json) VALUES (?, ?, ?, ?, ?)'
-        ).bind(query.trim(), parsed.name, parsed.hospital, parsed.specialty, JSON.stringify(parsed)).run()
+        await db.prepare('INSERT INTO kol_analyses (query, name, hospital, specialty, result_json) VALUES (?,?,?,?,?)')
+          .bind(query.trim(), formatted.name, formatted.hospital, formatted.specialty, JSON.stringify({...formatted, aiStrategy})).run()
       } catch {}
     }
 
-    return c.json({ success: true, source, data: parsed })
+    return c.json({ success: true, source: 'database', data: formatted, aiStrategy })
+  }
 
+  // DB에 없는 경우: AI 전체 추정
+  if (!apiKey) return c.json({ error: 'KOL이 DB에 등록되지 않았고, AI API 키도 없습니다. KOL 데이터베이스에 먼저 등록해주세요.' }, 404)
+
+  try {
+    const resp = await fetch(`${baseURL}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'gpt-5-mini',
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT_AI_ONLY },
+          { role: 'user', content: `다음 KOL을 분석해줘: ${query.trim()}` }
+        ],
+        max_tokens: 3000, temperature: 0.7, response_format: { type: 'json_object' }
+      })
+    })
+    if (!resp.ok) return c.json({ error: `AI API error: ${resp.status}` }, 502)
+    const d: any = await resp.json()
+    const content = d.choices?.[0]?.message?.content
+    if (!content) return c.json({ error: 'No AI response' }, 502)
+    const parsed = safeParseJSON(content)
+    if (!parsed) return c.json({ error: 'AI 결과 파싱 실패' }, 502)
+    return c.json({ success: true, source: 'ai', data: parsed })
   } catch (err: any) {
-    console.error('KOL analysis error:', err)
-    if (dbProfile) {
-      const formatted = formatDBProfileForDisplay(dbProfile)
-      return c.json({ success: true, source: 'database', data: { ...formatted, trends: [], strategy: { approach: '', tips: [], competitors: [] }, recentActivities: [] } })
-    }
     return c.json({ error: `Analysis failed: ${err.message}` }, 500)
   }
 })
 
+function safeParseJSON(content: string) {
+  try {
+    let s = content.trim()
+    if (s.includes('```')) { const m = s.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/); if (m) s = m[1].trim() }
+    if (!s.startsWith('{')) { const i = s.indexOf('{'); if (i !== -1) s = s.substring(i) }
+    s = s.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
+    try { return JSON.parse(s) } catch {
+      let r = s.replace(/,\s*"[^"]*"\s*:\s*"[^"]*$/, '').replace(/,\s*"[^"]*$/, '').replace(/,\s*$/, '')
+      let ob=0,oq=0,ins=false,esc=false
+      for (const ch of r) { if(esc){esc=false;continue} if(ch==='\\'){esc=true;continue} if(ch==='"'){ins=!ins;continue} if(ins)continue; if(ch==='{')ob++; if(ch==='}')ob--; if(ch==='[')oq++; if(ch===']')oq-- }
+      if(ins) r+='"'; while(oq>0){r+=']';oq--} while(ob>0){r+='}';ob--}
+      return JSON.parse(r)
+    }
+  } catch { return null }
+}
+
 // ============================================================
-// D1 기반 분석 이력 저장/조회 API
+// 분석 이력
 // ============================================================
 app.get('/api/kol/history', async (c) => {
   const db = c.env?.DB
   if (!db) return c.json({ data: [] })
   try {
-    const results = await db.prepare(
-      'SELECT * FROM kol_analyses ORDER BY created_at DESC LIMIT 20'
-    ).all()
-    return c.json({ data: results.results || [] })
-  } catch {
-    return c.json({ data: [] })
-  }
-})
-
-app.post('/api/kol/history', async (c) => {
-  const db = c.env?.DB
-  if (!db) return c.json({ success: false, error: 'DB not available' }, 500)
-  try {
-    const body: any = await c.req.json()
-    const { query, name, hospital, specialty, result_json } = body
-    await db.prepare(
-      'INSERT INTO kol_analyses (query, name, hospital, specialty, result_json) VALUES (?, ?, ?, ?, ?)'
-    ).bind(query, name, hospital, specialty, JSON.stringify(result_json)).run()
-    return c.json({ success: true })
-  } catch (err: any) {
-    console.error('Save history error:', err)
-    return c.json({ success: false, error: err.message }, 500)
-  }
+    const r = await db.prepare('SELECT * FROM kol_analyses ORDER BY created_at DESC LIMIT 20').all()
+    return c.json({ data: r.results || [] })
+  } catch { return c.json({ data: [] }) }
 })
 
 export default app

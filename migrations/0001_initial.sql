@@ -19,23 +19,29 @@ CREATE TABLE IF NOT EXISTS kol_profiles (
   hospital TEXT NOT NULL,
   department TEXT NOT NULL,
   position TEXT,
-  specialty_tags TEXT,          -- JSON array: ["배뇨장애","전립선비대증"]
-  education TEXT,               -- JSON array: [{year,school,degree}]
-  career TEXT,                  -- JSON array: [{period,institution,role}]
-  awards TEXT,                  -- JSON array: [{year,title}]
+  specialty_tags TEXT,              -- JSON array: ["배뇨장애","전립선비대증"]
+  education TEXT,                   -- JSON array: [{year,school,degree}]
+  career TEXT,                      -- JSON array: [{period,institution,role}]
+  awards TEXT,                      -- JSON array: [{year,title}]
   publications_count INTEGER DEFAULT 0,
   h_index INTEGER DEFAULT 0,
   clinical_trials INTEGER DEFAULT 0,
-  key_publications TEXT,        -- JSON array: [{year,title,journal}]
-  society_roles TEXT,           -- JSON array: [{year,society,role}]
-  kol_tier TEXT DEFAULT 'C',    -- A/B/C/D
-  persona TEXT DEFAULT 'Neutral', -- Champion/Advocate/Supporter/Neutral/Non-Adopter
-  prescription_pattern TEXT DEFAULT 'Moderate', -- High Adopter/Moderate/Conservative
-  strategy_memo TEXT,           -- 자유 텍스트 메모
-  competitor_notes TEXT,        -- JSON: 경쟁사 관련 메모
-  visit_notes TEXT,             -- 방문 전략 메모
-  source_urls TEXT,             -- JSON array: 출처 URL 목록
+  key_publications TEXT,            -- JSON array: [{year,title,journal}]
+  society_roles TEXT,               -- JSON array: [{year,society,role}]
+  kol_tier TEXT DEFAULT 'C',        -- A/B/C/D
+  persona TEXT DEFAULT 'Neutral',   -- Champion/Advocate/Supporter/Neutral/Non-Adopter
+  prescription_pattern TEXT DEFAULT 'Moderate',
+  strategy_memo TEXT,               -- 자유 텍스트 메모
+  visit_notes TEXT,                 -- 방문 전략 메모
+  source_urls TEXT,                 -- JSON array: 출처 URL 목록
   photo_url TEXT,
+  -- v3.1 신규 필드
+  clinic_schedule TEXT,             -- JSON: 주간 진료 일정 {"mon_am":true,"mon_pm":false,...,"note":"오전 외래 위주"}
+  treatment_philosophy TEXT,        -- 치료 철학/성향 요약 (예: 환자 삶의 질 중심, 데이터 기반)
+  treatment_preferences TEXT,       -- JSON array: 선호 치료법/약물 [{category,preference,detail}]
+  media_appearances TEXT,           -- JSON array: 방송/유튜브/인터뷰 [{type,title,url,date,key_points}]
+  research_focus TEXT,              -- 핵심 연구 관심사 요약 텍스트
+  books_patents TEXT,               -- JSON array: 저서/특허 [{year,title,type}]
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
