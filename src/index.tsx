@@ -186,47 +186,88 @@ const KOL_DETAIL_PROMPT = `당신은 한국 제약 영업 최고 전략가이자
 }`
 
 // ============================================================
-// Utility: Safe JSON parser
+// Utility: Safe JSON parser (robust truncation recovery)
 // ============================================================
-function safeParseJSON(content: string) {
-  try {
-    let s = content.trim()
-    // Remove markdown code blocks
-    if (s.includes('```')) {
-      const m = s.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/)
-      if (m) s = m[1].trim()
-    }
-    // Find first { if not starting with it
-    if (!s.startsWith('{')) {
-      const i = s.indexOf('{')
-      if (i !== -1) s = s.substring(i)
-    }
-    // Remove control characters
-    s = s.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
-    try {
-      return JSON.parse(s)
-    } catch {
-      // Try to fix truncated JSON
-      let r = s
-      let openBrace = 0, openBracket = 0, inStr = false, escaped = false
-      for (const ch of r) {
-        if (escaped) { escaped = false; continue }
-        if (ch === '\\') { escaped = true; continue }
-        if (ch === '"') { inStr = !inStr; continue }
-        if (inStr) continue
-        if (ch === '{') openBrace++
-        if (ch === '}') openBrace--
-        if (ch === '[') openBracket++
-        if (ch === ']') openBracket--
-      }
-      if (inStr) r += '"'
-      while (openBracket > 0) { r += ']'; openBracket-- }
-      while (openBrace > 0) { r += '}'; openBrace-- }
-      return JSON.parse(r)
-    }
-  } catch {
-    return null
+function safeParseJSON(content: string): any {
+  if (!content || !content.trim()) return null
+
+  let s = content.trim()
+
+  // Remove markdown code blocks
+  if (s.includes('```')) {
+    const m = s.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/)
+    if (m) s = m[1].trim()
   }
+
+  // Find first { if not starting with it
+  if (!s.startsWith('{') && !s.startsWith('[')) {
+    const i = s.indexOf('{')
+    if (i !== -1) s = s.substring(i)
+    else return null
+  }
+
+  // Remove control characters (keep newlines and tabs)
+  s = s.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
+
+  // Attempt 1: Direct parse
+  try { return JSON.parse(s) } catch {}
+
+  // Attempt 2: Remove trailing incomplete key-value pairs and fix brackets
+  try {
+    let r = s
+    // Remove trailing incomplete strings/values after last complete field
+    r = r.replace(/,\s*"[^"]*"\s*:\s*"[^"]*$/s, '')
+    r = r.replace(/,\s*"[^"]*"\s*:\s*\[?\s*$/s, '')
+    r = r.replace(/,\s*"[^"]*"\s*:\s*\{[^}]*$/s, '')
+    r = r.replace(/,\s*"[^"]*$/s, '')
+    r = r.replace(/,\s*$/s, '')
+
+    // Count and close unclosed brackets/braces
+    let openBrace = 0, openBracket = 0, inStr = false, escaped = false
+    for (const ch of r) {
+      if (escaped) { escaped = false; continue }
+      if (ch === '\\') { escaped = true; continue }
+      if (ch === '"') { inStr = !inStr; continue }
+      if (inStr) continue
+      if (ch === '{') openBrace++
+      if (ch === '}') openBrace--
+      if (ch === '[') openBracket++
+      if (ch === ']') openBracket--
+    }
+    if (inStr) r += '"'
+    // Remove trailing comma before closing
+    r = r.replace(/,\s*$/s, '')
+    while (openBracket > 0) { r += ']'; openBracket-- }
+    while (openBrace > 0) { r += '}'; openBrace-- }
+    return JSON.parse(r)
+  } catch {}
+
+  // Attempt 3: Aggressive cleanup — find the largest parseable JSON substring
+  try {
+    // Try removing chars from the end until it parses
+    let r = s
+    for (let cut = 0; cut < Math.min(500, r.length); cut++) {
+      const attempt = r.substring(0, r.length - cut)
+      // Close all open brackets/braces
+      let ob = 0, oq = 0, ins = false, esc = false
+      for (const ch of attempt) {
+        if (esc) { esc = false; continue }
+        if (ch === '\\') { esc = true; continue }
+        if (ch === '"') { ins = !ins; continue }
+        if (ins) continue
+        if (ch === '{') ob++; if (ch === '}') ob--
+        if (ch === '[') oq++; if (ch === ']') oq--
+      }
+      let fixed = attempt
+      if (ins) fixed += '"'
+      fixed = fixed.replace(/,\s*$/s, '')
+      while (oq > 0) { fixed += ']'; oq-- }
+      while (ob > 0) { fixed += '}'; ob-- }
+      try { return JSON.parse(fixed) } catch {}
+    }
+  } catch {}
+
+  return null
 }
 
 // ============================================================
@@ -264,7 +305,7 @@ async function callAI(env: any, systemPrompt: string, userMessage: string, maxTo
   const content = d.choices?.[0]?.message?.content
   if (!content) throw new Error('No AI response content')
   const parsed = safeParseJSON(content)
-  if (!parsed) throw new Error('Failed to parse AI response JSON')
+  if (!parsed) throw new Error(`JSON 파싱 실패 (응답 길이: ${content.length}자, 시작: ${content.substring(0, 80)}...)`)
   return parsed
 }
 
@@ -285,7 +326,7 @@ app.post('/api/drug/analyze', async (c) => {
       c.env,
       DRUG_TO_KOL_PROMPT,
       `다음 의약품에 대해 한국 내 핵심 KOL 타겟 리스트를 내림차순(relevanceScore 기준)으로 생성해줘: "${drug.trim()}"`,
-      6000
+      8000
     )
     // Ensure kols are sorted by relevanceScore desc
     if (result.kols && Array.isArray(result.kols)) {
@@ -340,7 +381,7 @@ ${drugContext}
 
 참고: 병원 홈페이지, PubMed, YouTube 등 공개 정보를 기반으로 최대한 구체적이고 정확한 정보를 제공해줘.
 진료일정은 요일별 오전/오후로, 치료 선호도는 질환별로 구체적으로 작성해줘.`,
-      6000
+      8000
     )
     if (!result) return c.json({ error: '분석 결과를 생성하지 못했습니다.' }, 500)
     return c.json({ success: true, data: result })
