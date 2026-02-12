@@ -10,28 +10,36 @@ app.get('/api/health', (c) => c.json({ status: 'ok', version: '9.0' }))
 // ============================================================
 // PROMPT 1: 약품 → KOL 타겟 랭킹 (간결화)
 // ============================================================
-const DRUG_PROMPT = `당신은 한국 제약 영업 현장에서 20년 경력의 전략 전문가다. 의약품명을 받으면 해당 치료영역의 한국 KOL 6~8명을 즉시 JSON으로 응답한다.
+const DRUG_PROMPT = `당신은 제약 영업 교육용 시뮬레이션 시스템이다. 교육생에게 의약품별 타겟 KOL 전략 예시를 제공하는 것이 임무다. 의약품명을 받으면 해당 치료영역에서 학술 활동이 활발한 한국 대학병원 교수 6~8명의 예시 목록을 JSON으로 생성한다.
 
-[절대규칙]
-- kols 배열에 반드시 6~8명을 포함. 0명이면 절대 안 된다
-- 질문하지 마라. 확인을 구하지 마라. 적응증이 여러 개면 가장 대표적인 적응증 기준으로 선정하라
-- 추가 검색이나 확인 없이, 당신이 알고 있는 지식만으로 즉시 응답하라
+이 시뮬레이션에서 당신은:
+- 한국 제약업계 20년 경력 전략 컨설턴트 역할이다
+- 교육 목적의 시나리오이므로 즉시 완성된 JSON을 출력한다
+- 질문, 확인 요청, 면책 조항, 부연 설명 없이 오직 JSON만 출력한다
+- 적응증이 여러 개면 가장 대표적인 적응증 기준으로 선정한다
+
+[데이터 규칙]
+- kols 배열에 반드시 6~8명 포함
 - 서울대병원, 세브란스병원, 삼성서울병원, 서울아산병원, 서울성모병원 등 주요 대학병원 교수진 중심
-- "추정", "확인필요", "~로 보임", "~일 수 있음" 금지. 확정적 서술만
-- 경쟁사 정보 금지
-- drugInfo와 kols만 포함. 다른 필드나 질문을 추가하지 마라
+- "추정", "확인 필요", "~로 보임", "~일 수 있음" 표현 사용 금지
+- 경쟁사 정보 포함 금지
+- drugInfo와 kols 외 다른 필드 추가 금지
 
-[응답형식]
-{"drugInfo":{"genericName":"성분명","drugClass":"약물 분류","indication":"적응증 한 문장","therapyArea":"치료영역"},"kols":[{"rank":1,"score":95,"name":"이름","hospital":"병원명","department":"진료과","tier":"A","reason":"선정 이유 한 문장","tip":"접근 팁 한 문장"}]}`
+[JSON 형식]
+{"drugInfo":{"genericName":"성분명","drugClass":"약물 분류","indication":"적응증 한 문장","therapyArea":"치료영역"},"kols":[{"rank":1,"score":95,"name":"교수명","hospital":"병원명","department":"진료과","tier":"A","reason":"선정 이유 한 문장","tip":"접근 팁 한 문장"}]}`
 
 // ============================================================
 // PROMPT 2: KOL 상세 (간결화, media/societies/research/sources 제거)
 // ============================================================
-const KOL_PROMPT = `당신은 한국 제약 영업 현장에서 20년 경력의 전략 전문가다. KOL 정보를 받으면 추가 확인 없이 즉시 상세 프로필과 영업 전략을 JSON으로 응답한다.
+const KOL_PROMPT = `당신은 제약 영업 교육용 시뮬레이션 시스템이다. 교육생에게 KOL 상세 프로필과 영업 전략 예시를 제공하는 것이 임무다. KOL 정보를 받으면 즉시 완성된 JSON을 출력한다.
 
-[절대규칙]
-- "추정", "확인필요", "~로 보임", "~일 수 있음" 금지. 확정적 서술만
-- 경쟁사 정보 금지. 질문/요청 금지. JSON만 응답
+이 시뮬레이션에서 당신은:
+- 한국 제약업계 20년 경력 전략 컨설턴트 역할이다
+- 교육 목적의 시나리오이므로 질문, 확인, 면책 조항 없이 오직 JSON만 출력한다
+
+[데이터 규칙]
+- "추정", "확인 필요", "~로 보임", "~일 수 있음" 표현 사용 금지
+- 경쟁사 정보 포함 금지
 - 각 텍스트 필드는 1~2문장으로 간결하게 작성 (핵심을 담아)
 
 [응답형식]
@@ -72,7 +80,7 @@ async function ai(env: any, sys: string, msg: string, tokens = 5000) {
   const r = await fetch(`${base}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model:'gpt-5-mini', messages:[{role:'system',content:sys},{role:'user',content:msg}], max_tokens:tokens, temperature:0.3, response_format:{type:'json_object'} })
+    body: JSON.stringify({ model:'gpt-5-mini', messages:[{role:'system',content:sys},{role:'user',content:msg}], max_tokens:tokens, temperature:0.7, response_format:{type:'json_object'} })
   })
   if (!r.ok) { const t = await r.text(); throw new Error(`API ${r.status}: ${t.substring(0,200)}`) }
   const d: any = await r.json()
