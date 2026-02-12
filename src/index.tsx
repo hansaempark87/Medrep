@@ -42,7 +42,17 @@ function parseJSON(content: string): any {
   if (!s.startsWith('{') && !s.startsWith('[')) { const i = s.indexOf('{'); if (i >= 0) s = s.substring(i); else return null }
   s = s.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
   try { return JSON.parse(s) } catch {}
-  let r = s.replace(/,\s*"[^"]*"\s*:\s*"[^"]*$/s, '').replace(/,\s*"[^"]*"\s*:\s*\[?\s*$/s, '').replace(/,\s*"[^"]*$/s, '').replace(/,\s*$/s, '')
+  // 잘린 JSON 복구: 불완전한 마지막 키-값 제거 후 괄호 닫기
+  let r = s
+  // 잘린 문자열/값 패턴 제거
+  r = r.replace(/,\s*"[^"]*"\s*:\s*"[^"]*$/s, '')
+    .replace(/,\s*"[^"]*"\s*:\s*\[\s*"[^"]*$/s, '')
+    .replace(/,\s*"[^"]*"\s*:\s*\[?\s*$/s, '')
+    .replace(/,\s*"[^"]*"\s*:\s*\{[^}]*$/s, '')
+    .replace(/,\s*"[^"]*$/s, '')
+    .replace(/,\s*$/s, '')
+  // 잘린 배열 항목 제거
+  r = r.replace(/,\s*\{[^}]*$/s, '')
   let ob=0,oq=0,ins=false,esc=false
   for(const c of r){if(esc){esc=false;continue}if(c==='\\'){esc=true;continue}if(c==='"'){ins=!ins;continue}if(ins)continue;if(c==='{')ob++;if(c==='}')ob--;if(c==='[')oq++;if(c===']')oq--}
   if(ins)r+='"'; r=r.replace(/,\s*$/s,''); while(oq>0){r+=']';oq--} while(ob>0){r+='}';ob--}
@@ -50,7 +60,7 @@ function parseJSON(content: string): any {
   return null
 }
 
-async function ai(env: any, sys: string, msg: string, tokens = 4000) {
+async function ai(env: any, sys: string, msg: string, tokens = 5000) {
   const key = (env?.OPENAI_API_KEY || '').trim()
   const base = (env?.OPENAI_BASE_URL || 'https://api.openai.com/v1').trim()
   if (!key) throw new Error('API키 미설정')
@@ -62,12 +72,9 @@ async function ai(env: any, sys: string, msg: string, tokens = 4000) {
   if (!r.ok) { const t = await r.text(); throw new Error(`API ${r.status}: ${t.substring(0,200)}`) }
   const d: any = await r.json()
   const c = d.choices?.[0]?.message?.content
-  if (!c) {
-    // finish_reason=length일 때 빈 content 가능 → 에러 대신 재시도
-    throw new Error('응답부족(토큰초과)')
-  }
+  if (!c) throw new Error('응답부족(토큰초과)')
   const p = parseJSON(c)
-  if (!p) throw new Error('파싱 실패: ' + c.substring(0, 200))
+  if (!p) throw new Error(`분석 실패: JSON 파싱 실패 (응답 길이: ${c.length}자, 시작: ${c.substring(0, 80)}...)`)
   return p
 }
 
