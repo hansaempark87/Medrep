@@ -12,9 +12,13 @@ app.use('/api/*', cors())
 // ============================================================
 // Health check
 // ============================================================
-app.get('/api/health', (c) =>
-  c.json({ status: 'ok', service: 'MedRep KOL Targeting', version: '6.0.0' })
-)
+app.get('/api/health', (c) => {
+  return c.json({
+    status: 'ok',
+    service: 'MedRep KOL Targeting',
+    version: '6.0.2'
+  })
+})
 
 // ============================================================
 // AI 프롬프트 1: 의약품 → KOL 타겟 리스트 (내림차순 랭킹)
@@ -229,9 +233,9 @@ function safeParseJSON(content: string) {
 // Utility: AI API call
 // ============================================================
 async function callAI(env: any, systemPrompt: string, userMessage: string, maxTokens = 5000) {
-  const apiKey = env?.OPENAI_API_KEY || ''
-  const baseURL = env?.OPENAI_BASE_URL || 'https://api.openai.com/v1'
-  if (!apiKey) return null
+  const apiKey = (env?.OPENAI_API_KEY || '').trim()
+  const baseURL = (env?.OPENAI_BASE_URL || 'https://api.openai.com/v1').trim()
+  if (!apiKey) throw new Error('OPENAI_API_KEY not configured')
 
   const resp = await fetch(`${baseURL}/chat/completions`, {
     method: 'POST',
@@ -259,7 +263,9 @@ async function callAI(env: any, systemPrompt: string, userMessage: string, maxTo
   const d: any = await resp.json()
   const content = d.choices?.[0]?.message?.content
   if (!content) throw new Error('No AI response content')
-  return safeParseJSON(content)
+  const parsed = safeParseJSON(content)
+  if (!parsed) throw new Error('Failed to parse AI response JSON')
+  return parsed
 }
 
 // ============================================================
@@ -281,8 +287,6 @@ app.post('/api/drug/analyze', async (c) => {
       `다음 의약품에 대해 한국 내 핵심 KOL 타겟 리스트를 내림차순(relevanceScore 기준)으로 생성해줘: "${drug.trim()}"`,
       6000
     )
-    if (!result) return c.json({ error: 'AI API 키가 설정되지 않았습니다.' }, 500)
-
     // Ensure kols are sorted by relevanceScore desc
     if (result.kols && Array.isArray(result.kols)) {
       result.kols.sort((a: any, b: any) => (b.relevanceScore || 0) - (a.relevanceScore || 0))
@@ -338,7 +342,7 @@ ${drugContext}
 진료일정은 요일별 오전/오후로, 치료 선호도는 질환별로 구체적으로 작성해줘.`,
       6000
     )
-    if (!result) return c.json({ error: 'AI API 키가 설정되지 않았습니다.' }, 500)
+    if (!result) return c.json({ error: '분석 결과를 생성하지 못했습니다.' }, 500)
     return c.json({ success: true, data: result })
   } catch (err: any) {
     console.error('KOL detail error:', err.message)
