@@ -5,7 +5,7 @@ type Bindings = { OPENAI_API_KEY: string; OPENAI_BASE_URL: string }
 const app = new Hono<{ Bindings: Bindings }>()
 app.use('/api/*', cors())
 
-app.get('/api/health', (c) => c.json({ status: 'ok', version: '10.0' }))
+app.get('/api/health', (c) => c.json({ status: 'ok', version: '10.1' }))
 
 // ============================================================
 // KOL DATABASE — 실제 교수 데이터 (수동 관리)
@@ -18,9 +18,11 @@ interface KolEntry {
   tags: string[]
   therapyAreas: string[]
   schedule: Record<string, {am:string, pm:string}>
+  scheduleSource?: string
   publications: {title:string, journal:string, year:string, url?:string}[]
   societies: string[]
   profileUrl?: string
+  refs?: {label:string, url:string}[]
 }
 
 const KOL_DB: KolEntry[] = [
@@ -341,7 +343,11 @@ function findKols(drugName: string): {drugInfo: any, kols: any[]} | null {
       tier: k.score >= 90 ? 'A' : k.score >= 85 ? 'B' : 'C',
       publications: k.publications,
       societies: k.societies,
-      profileUrl: k.profileUrl
+      profileUrl: k.profileUrl,
+      refs: [
+        ...(k.profileUrl ? [{ label: '병원 프로필', url: k.profileUrl }] : []),
+        { label: 'PubMed', url: `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(k.name)}+${encodeURIComponent(k.hospital.substring(0,4))}` }
+      ]
     }))
   return { drugInfo: mapping.drugInfo, kols: matched }
 }
@@ -349,17 +355,10 @@ function findKols(drugName: string): {drugInfo: any, kols: any[]} | null {
 // ============================================================
 // AI PROMPT — DB 데이터 기반 전략 분석만 (KOL 생성 X)
 // ============================================================
-const STRATEGY_PROMPT = `당신은 제약 영업 교육용 시뮬레이션 시스템이다. 주어진 KOL의 객관적 정보(논문, 학회활동, 전문분야)를 기반으로 약품 영업 전략을 분석한다.
-
-[절대규칙]
-- 오직 주어진 데이터에 근거한 분석만 수행. 없는 정보를 만들지 마라
-- "추정", "확인필요", "~로 보임", "~일 수 있음" 금지. 주어진 사실 기반 서술만
-- 주관적 방문 조언(몇분전 도착 등) 금지. 객관적 학술 사실 기반 전략만
-- 경쟁사 정보 금지
-- 각 필드 1~2문장으로 간결하게
-
-[응답형식 JSON]
-{"philosophy":"이 KOL의 연구/학술 방향성을 요약한 한 문장","preferences":[{"condition":"주요 관심 질환","approach":"이 KOL이 논문에서 보인 치료 접근법"}],"strategy":{"summary":"이 약품과 KOL의 학술적 접점을 요약한 한 문장","actions":[{"icon":"comment","title":"화제","text":"이 KOL의 연구 관심사에 맞는 대화 주제"},{"icon":"file","title":"자료","text":"이 KOL에게 제공할 근거 자료 추천"}],"do":["학술 근거에 기반한 접근법"],"dont":["피해야 할 접근법"]}}`
+const STRATEGY_PROMPT = `약품-KOL 학술 전략 분석기. 주어진 논문·학회 데이터만 기반으로 분석.
+규칙: 추측금지, 방문조언금지, 경쟁사금지, 없는정보생성금지, 각필드 1-2문장
+actions의 text에 근거 논문제목/학회명 필수 명시. DO/DONT는 학술적 관점만.
+JSON응답: {"philosophy":"연구방향 한문장","preferences":[{"condition":"연구질환","approach":"논문에서 보인 접근법"}],"strategy":{"summary":"약품-KOL 학술접점 한문장","actions":[{"icon":"comment","title":"학술화제","text":"논문기반 대화주제(논문명포함)","ref":"PubMed URL"},{"icon":"file","title":"근거자료","text":"연구분야 맞는 자료(학회/가이드라인명포함)","ref":"URL"}],"do":["학술근거 접근법(논문명포함)"],"dont":["피할 접근법"]}}`
 
 // ============================================================
 // Utilities
@@ -389,12 +388,12 @@ async function ai(env: any, sys: string, msg: string, tokens = 3000) {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify({ model:'gpt-5-mini', messages:[{role:'system',content:sys},{role:'user',content:msg}], max_tokens:tokens, temperature:0.3, response_format:{type:'json_object'} })
   })
-  if (!r.ok) { const t = await r.text(); throw new Error(`API ${r.status}: ${t.substring(0,200)}`) }
+  if (!r.ok) { const t = await r.text(); throw new Error(`API ${r.status}: ${t.substring(0,300)}`) }
   const d: any = await r.json()
   const c = d.choices?.[0]?.message?.content
-  if (!c) throw new Error('응답부족')
+  if (!c) throw new Error(`응답부족: keys=${Object.keys(d).join(',')}, choices=${JSON.stringify(d.choices?.[0]).substring(0,200)}`)
   const p = parseJSON(c)
-  if (!p) throw new Error('분석 실패')
+  if (!p) throw new Error(`분석 실패: len=${c.length}, start=${c.substring(0,100)}`)
   return p
 }
 
@@ -418,17 +417,23 @@ app.post('/api/kol/detail', async (c) => {
   const { name, hospital, department, drug, drugInfo, publications, societies, tags } = b
   if (!name) return c.json({error:'이름 필요'},400)
 
-  // DB에서 KOL 정보 조회
-  const dbKol = KOL_DB.find(k => k.name === name && k.hospital?.includes(hospital?.replace('서울대학교병원','서울대')?.substring(0,3) || ''))
+  // DB에서 KOL 정보 조회 (이름으로)
+  const dbKol = KOL_DB.find(k => k.name === name)
 
   const kolData: any = {
-    name, hospital, department,
+    name: dbKol?.name || name,
+    hospital: dbKol?.hospital || hospital || '',
+    department: dbKol?.department || department || '',
     position: dbKol?.position || '',
     tags: dbKol?.tags || tags || [],
-    schedule: dbKol?.schedule || {},
+    schedule: dbKol?.schedule || null,
+    scheduleSource: dbKol?.profileUrl || null,
     publications: dbKol?.publications || publications || [],
     societies: dbKol?.societies || societies || [],
-    profileUrl: dbKol?.profileUrl || ''
+    refs: dbKol ? [
+      ...(dbKol.profileUrl ? [{ label: '병원 프로필', url: dbKol.profileUrl }] : []),
+      { label: 'PubMed 검색', url: `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(dbKol.name)}+${encodeURIComponent(dbKol.hospital.substring(0,4))}` }
+    ] : []
   }
 
   // AI에게 전략 분석 요청 (객관적 데이터 기반)
@@ -439,14 +444,14 @@ app.post('/api/kol/detail', async (c) => {
 
   try {
     const strategy = await ai(c.env, STRATEGY_PROMPT,
-      `약품: ${drugCtx}\nKOL: ${name}, ${hospital}, ${department}\n전문분야: ${tagStr}\n학회: ${socStr}\n논문:\n${pubStr}`, 3000)
+      `약품: ${drugCtx}\nKOL: ${name}, ${kolData.hospital}, ${kolData.department}\n전문분야: ${tagStr}\n학회: ${socStr}\n논문:\n${pubStr}`, 4000)
     kolData.philosophy = strategy.philosophy || ''
     kolData.preferences = strategy.preferences || []
-    kolData.strategy = strategy.strategy || {}
-  } catch (e) {
+    kolData.strategy = strategy.strategy || { summary:'', actions:[], do:[], dont:[] }
+  } catch (e: any) {
     kolData.philosophy = ''
     kolData.preferences = []
-    kolData.strategy = { summary: '전략 분석을 불러올 수 없습니다', actions: [], do: [], dont: [] }
+    kolData.strategy = { summary: '', actions: [], do: [], dont: [] }
   }
 
   return c.json({success:true, data:kolData})
@@ -497,7 +502,7 @@ body{background:#0f172a;color:#e2e8f0;min-height:100vh;margin:0}
     <span class="font-bold text-white text-sm cursor-pointer" onclick="goHome()">KOL Targeting</span>
     <div id="bc" class="text-[11px] text-gray-600 ml-1"></div>
     <div class="flex-1"></div>
-    <span class="text-[9px] text-gray-700">DB v10.0</span>
+    <span class="text-[9px] text-gray-700">DB v10.1</span>
   </div>
 </header>
 
@@ -631,16 +636,19 @@ function renderDetail(d,lk){
 
   <!-- 요약 -->
   <div id="t-ov" class="tc on">
-    \${st.summary?\`<div class="card p-3 mb-2 border-l-2 border-blue-500"><p class="text-blue-300 text-xs">\${st.summary}</p></div>\`:''}
+    \${st.summary?\`<div class="card p-3 mb-2 border-l-2 border-blue-500"><p class="text-blue-300 text-xs">\${st.summary}</p>\${(d.refs||[]).length?\`<div class="mt-1.5 flex flex-wrap gap-1">\${d.refs.map(r=>\`<a href="\${r.url}" target="_blank" class="ref">\${r.label}</a>\`).join('')}</div>\`:''}</div>\`:''}
     \${d.philosophy?\`<div class="card p-3 mb-2"><p class="text-[11px] text-gray-500 mb-1">연구 방향</p><p class="text-gray-300 text-xs">\${d.philosophy}</p></div>\`:''}
     \${(d.preferences||[]).length?\`<div class="card p-3 mb-2"><p class="text-[11px] text-gray-500 mb-1.5">관심 영역</p>\${d.preferences.map(p=>\`<div class="flex gap-2 mb-1 last:mb-0"><span class="tag flex-shrink-0">\${p.condition}</span><span class="text-gray-400 text-xs">\${p.approach}</span></div>\`).join('')}</div>\`:''}
     \${(d.societies||[]).length?\`<div class="card p-3"><p class="text-[11px] text-gray-500 mb-1">학회 활동</p>\${d.societies.map(s=>\`<p class="text-gray-400 text-xs">· \${s}</p>\`).join('')}</div>\`:''}
   </div>
 
-  <!-- 일정 (객관적 사실만) -->
+  <!-- 일정 (객관적 사실만 — DB 데이터) -->
   <div id="t-sc" class="tc">
     <div class="card p-3">
-      <p class="text-[11px] text-gray-500 mb-2">외래 일정</p>
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-[11px] text-gray-500">외래 일정</p>
+        \${d.scheduleSource?\`<a href="\${d.scheduleSource}" target="_blank" class="ref">출처</a>\`:''}
+      </div>
       <table class="w-full text-[11px]">
         <tr>\${days.map(([,l])=>\`<th class="py-1.5 text-center text-gray-500 font-medium">\${l}</th>\`).join('')}</tr>
         <tr class="border-t border-white/5">\${days.map(([k])=>{
@@ -653,6 +661,7 @@ function renderDetail(d,lk){
         }).join('')}</tr>
         <tr class="text-[10px] text-gray-600"><td class="pt-1" colspan="5"><span class="text-green-400/60">■</span> 오전 &nbsp;<span class="text-cyan-400/60">■</span> 오후</td></tr>
       </table>
+      <p class="text-[9px] text-gray-700 mt-2">※ 일정은 병원 공개 데이터 기준이며, 실제 일정은 병원에 직접 확인 필요</p>
     </div>
   </div>
 
@@ -661,14 +670,14 @@ function renderDetail(d,lk){
     \${(d.publications||[]).length?\`<div class="card p-3"><p class="text-[11px] text-gray-500 mb-1.5">대표 논문</p>\${d.publications.map(p=>\`<div class="mb-2 last:mb-0"><p class="text-gray-300 text-xs">\${p.title}\${p.url?\`<a href="\${p.url}" target="_blank" class="ref">Ref.</a>\`:''}</p><p class="text-gray-600 text-[10px]">\${p.journal||''} (\${p.year||''})</p></div>\`).join('')}</div>\`:'<div class="card p-3"><p class="text-gray-600 text-xs">논문 정보 없음</p></div>'}
   </div>
 
-  <!-- 전략 (학술 기반, 방문 제거) -->
+  <!-- 전략 (학술적 근거 기반 — 방문 조언 없음) -->
   <div id="t-st" class="tc">
     \${(st.actions||[]).length?\`<div class="grid gap-1.5 mb-2" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">\${st.actions.map(a=>{
       const icons={comment:'fa-comment-dots',file:'fa-file-alt',search:'fa-search',book:'fa-book'};
-      return\`<div class="card p-2.5"><p class="text-[10px] text-gray-500 mb-0.5"><i class="fas \${icons[a.icon]||'fa-info'} mr-1 text-blue-400"></i>\${a.title}</p><p class="text-gray-300 text-xs">\${a.text}</p></div>\`
+      return\`<div class="card p-2.5"><p class="text-[10px] text-gray-500 mb-0.5"><i class="fas \${icons[a.icon]||'fa-info'} mr-1 text-blue-400"></i>\${a.title}</p><p class="text-gray-300 text-xs">\${a.text}\${a.ref?\` <a href="\${a.ref}" target="_blank" class="ref">Ref.</a>\`:''}</p></div>\`
     }).join('')}</div>\`:''}
     <div class="grid grid-cols-2 gap-1.5">
-      \${(st.do||[]).length?\`<div class="card p-2.5"><p class="text-green-400 text-[10px] font-medium mb-1">DO</p>\${st.do.map(x=>\`<p class="text-gray-300 text-[11px] mb-0.5"><i class="fas fa-check text-green-500 text-[9px] mr-1"></i>\${x}</p>\`).join('')}</div>\`:''}
+      \${(st.do||[]).length?\`<div class="card p-2.5"><p class="text-green-400 text-[10px] font-medium mb-1">DO <span class="text-gray-600 font-normal">(학술 근거 기반)</span></p>\${st.do.map(x=>\`<p class="text-gray-300 text-[11px] mb-0.5"><i class="fas fa-check text-green-500 text-[9px] mr-1"></i>\${x}</p>\`).join('')}</div>\`:''}
       \${(st.dont||[]).length?\`<div class="card p-2.5"><p class="text-red-400 text-[10px] font-medium mb-1">DON'T</p>\${st.dont.map(x=>\`<p class="text-gray-300 text-[11px] mb-0.5"><i class="fas fa-times text-red-500 text-[9px] mr-1"></i>\${x}</p>\`).join('')}</div>\`:''}
     </div>
   </div>
