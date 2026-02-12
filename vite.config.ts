@@ -16,10 +16,10 @@ export default defineConfig({
     {
       name: 'fix-routes',
       closeBundle() {
-        // Only route /api/* to the worker, let everything else be served as static
+        // Route everything to the worker (API + HTML pages)
         writeFileSync('dist/_routes.json', JSON.stringify({
           version: 1,
-          include: ["/api/*"],
+          include: ["/*"],
           exclude: []
         }))
       }
