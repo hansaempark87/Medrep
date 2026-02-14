@@ -304,26 +304,29 @@ const KOL_DB: KolEntry[] = [
   },
 ]
 
-// 약품→치료영역 매핑 (AI가 분류하지 않고 직접 매핑)
-const DRUG_AREA_MAP: Record<string, {areas:string[], drugInfo:{genericName:string,drugClass:string,indication:string,therapyArea:string}}> = {
-  "피타바스타틴": {areas:["심혈관","지질대사","스타틴"], drugInfo:{genericName:"피타바스타틴(Pitavastatin)",drugClass:"HMG-CoA 환원효소 억제제(스타틴)",indication:"고콜레스테롤혈증 및 이상지질혈증 치료",therapyArea:"심혈관/지질대사"}},
-  "아토르바스타틴": {areas:["심혈관","지질대사","스타틴"], drugInfo:{genericName:"아토르바스타틴(Atorvastatin)",drugClass:"HMG-CoA 환원효소 억제제(스타틴)",indication:"고콜레스테롤혈증, 이상지질혈증 및 심혈관 위험 감소",therapyArea:"심혈관/지질대사"}},
-  "로수바스타틴": {areas:["심혈관","지질대사","스타틴"], drugInfo:{genericName:"로수바스타틴(Rosuvastatin)",drugClass:"HMG-CoA 환원효소 억제제(스타틴)",indication:"이상지질혈증 치료 및 심혈관 위험 감소",therapyArea:"심혈관/지질대사"}},
-  "엠파글리플로진": {areas:["당뇨","SGLT2","심부전","신장"], drugInfo:{genericName:"엠파글리플로진(Empagliflozin)",drugClass:"SGLT2 억제제",indication:"제2형 당뇨병 치료 및 심부전·만성 신장질환 관리",therapyArea:"당뇨/심신장"}},
-  "다파글리플로진": {areas:["당뇨","SGLT2","심부전","신장"], drugInfo:{genericName:"다파글리플로진(Dapagliflozin)",drugClass:"SGLT2 억제제",indication:"제2형 당뇨병 치료 및 심부전 관리",therapyArea:"당뇨/심신장"}},
-  "펨브롤리주맙": {areas:["종양","면역항암","PD-1","폐암"], drugInfo:{genericName:"펨브롤리주맙(Pembrolizumab)",drugClass:"PD-1 면역관문억제제",indication:"비소세포폐암, 위암, 흑색종 등 다수 고형암의 면역항암 치료",therapyArea:"종양/면역항암"}},
-  "니볼루맙": {areas:["종양","면역항암","PD-1"], drugInfo:{genericName:"니볼루맙(Nivolumab)",drugClass:"PD-1 면역관문억제제",indication:"비소세포폐암, 신세포암, 두경부암 등의 면역항암 치료",therapyArea:"종양/면역항암"}},
-  "엔잘루타마이드": {areas:["비뇨기","전립선암","비뇨종양","엔잘루타마이드"], drugInfo:{genericName:"엔잘루타마이드(Enzalutamide)",drugClass:"안드로겐 수용체 억제제",indication:"전이성 거세저항성 전립선암(mCRPC) 치료",therapyArea:"비뇨기/전립선암"}},
-  "미라베그론": {areas:["비뇨기","과민성방광","배뇨장애","미라베그론"], drugInfo:{genericName:"미라베그론(Mirabegron)",drugClass:"베타3-아드레날린 수용체 작용제",indication:"과민성방광(OAB)의 절박뇨, 빈뇨, 절박성 요실금 치료",therapyArea:"비뇨기/배뇨장애"}},
-  "denosumab": {areas:["골다공증","denosumab","골대사"], drugInfo:{genericName:"데노수맙(Denosumab)",drugClass:"RANKL 억제제(단클론항체)",indication:"폐경 후 골다공증 치료 및 골절 위험 감소",therapyArea:"골다공증/골대사"}},
-  "Denosumab": {areas:["골다공증","denosumab","골대사"], drugInfo:{genericName:"데노수맙(Denosumab)",drugClass:"RANKL 억제제(단클론항체)",indication:"폐경 후 골다공증 치료 및 골절 위험 감소",therapyArea:"골다공증/골대사"}},
-  "데노수맙": {areas:["골다공증","denosumab","골대사"], drugInfo:{genericName:"데노수맙(Denosumab)",drugClass:"RANKL 억제제(단클론항체)",indication:"폐경 후 골다공증 치료 및 골절 위험 감소",therapyArea:"골다공증/골대사"}},
+// 질환→치료영역 매핑
+const DISEASE_AREA_MAP: Record<string, {areas:string[], diseaseInfo:{name:string,category:string,description:string,specialties:string[]}}> = {
+  "고콜레스테롤혈증": {areas:["심혈관","지질대사","스타틴","고혈압"], diseaseInfo:{name:"고콜레스테롤혈증",category:"심혈관/대사질환",description:"혈중 콜레스테롤 수치가 비정상적으로 높은 상태",specialties:["순환기내과","심장내과","내분비내과"]}},
+  "이상지질혈증": {areas:["심혈관","지질대사","스타틴","고혈압"], diseaseInfo:{name:"이상지질혈증",category:"심혈관/대사질환",description:"혈중 지질 수치의 이상 (LDL↑, HDL↓, 중성지방↑)",specialties:["순환기내과","심장내과","내분비내과"]}},
+  "제2형당뇨병": {areas:["당뇨","SGLT2","GLP1","내분비","비만"], diseaseInfo:{name:"제2형당뇨병",category:"내분비/대사질환",description:"인슐린 저항성과 분비 장애로 인한 고혈당 상태",specialties:["내분비내과"]}},
+  "당뇨병": {areas:["당뇨","SGLT2","GLP1","내분비","비만"], diseaseInfo:{name:"제2형당뇨병",category:"내분비/대사질환",description:"인슐린 저항성과 분비 장애로 인한 고혈당 상태",specialties:["내분비내과"]}},
+  "비소세포폐암": {areas:["종양","면역항암","PD-1","폐암","면역관문억제제"], diseaseInfo:{name:"비소세포폐암",category:"악성종양",description:"폐암의 약 85%를 차지하는 암종 (선암, 편평상피암 등)",specialties:["종양내과","혈액종양내과"]}},
+  "폐암": {areas:["종양","면역항암","PD-1","폐암","면역관문억제제"], diseaseInfo:{name:"비소세포폐암",category:"악성종양",description:"폐에 발생하는 악성 종양 (비소세포암 85%, 소세포암 15%)",specialties:["종양내과","혈액종양내과"]}},
+  "위암": {areas:["종양","면역항암","위암","PD-1"], diseaseInfo:{name:"위암",category:"악성종양",description:"위 점막에서 발생하는 악성 종양 (선암이 대부분)",specialties:["종양내과","혈액종양내과"]}},
+  "대장암": {areas:["종양","면역항암","대장암","PD-1"], diseaseInfo:{name:"대장암",category:"악성종양",description:"대장 점막에서 발생하는 악성 종양",specialties:["종양내과","혈액종양내과"]}},
+  "전립선암": {areas:["비뇨기","전립선암","비뇨종양","엔잘루타마이드"], diseaseInfo:{name:"전립선암",category:"비뇨기 종양",description:"전립선에 발생하는 악성 종양 (전이성 거세저항성 전립선암 포함)",specialties:["비뇨의학과","종양내과"]}},
+  "과민성방광": {areas:["비뇨기","과민성방광","배뇨장애","미라베그론"], diseaseInfo:{name:"과민성방광(OAB)",category:"비뇨기 질환",description:"절박뇨, 빈뇨, 절박성 요실금을 동반하는 배뇨장애",specialties:["비뇨의학과"]}},
+  "방광암": {areas:["비뇨기","방광암","비뇨종양"], diseaseInfo:{name:"방광암",category:"비뇨기 종양",description:"방광 점막에서 발생하는 악성 종양",specialties:["비뇨의학과","종양내과"]}},
+  "골다공증": {areas:["골다공증","denosumab","골대사","내분비"], diseaseInfo:{name:"골다공증",category:"골대사 질환",description:"골밀도 감소로 골절 위험이 증가하는 질환 (주로 폐경 후 여성)",specialties:["내분비내과","류마티스내과"]}},
+  "심부전": {areas:["심혈관","심부전","SGLT2"], diseaseInfo:{name:"심부전",category:"심혈관 질환",description:"심장이 충분한 혈액을 펌프하지 못하는 상태",specialties:["순환기내과","심장내과"]}},
+  "만성신장질환": {areas:["신장","SGLT2","당뇨"], diseaseInfo:{name:"만성신장질환",category:"신장 질환",description:"신장 기능이 점진적으로 저하되는 질환",specialties:["신장내과","내분비내과"]}},
+  "류마티스관절염": {areas:["류마티스","자가면역","골다공증"], diseaseInfo:{name:"류마티스관절염",category:"자가면역 질환",description:"관절 활막의 만성 염증성 질환",specialties:["류마티스내과"]}},
 }
 
-function findKols(drugName: string): {drugInfo: any, kols: any[]} | null {
-  const key = Object.keys(DRUG_AREA_MAP).find(k => drugName.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(drugName.toLowerCase()))
+function findKols(diseaseName: string): {diseaseInfo: any, kols: any[]} | null {
+  const key = Object.keys(DISEASE_AREA_MAP).find(k => diseaseName.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(diseaseName.toLowerCase()))
   if (!key) return null
-  const mapping = DRUG_AREA_MAP[key]
+  const mapping = DISEASE_AREA_MAP[key]
   const matched = KOL_DB.filter(k => k.therapyAreas.some(a => mapping.areas.includes(a)))
     .map(k => {
       const overlap = k.therapyAreas.filter(a => mapping.areas.includes(a)).length
@@ -349,16 +352,16 @@ function findKols(drugName: string): {drugInfo: any, kols: any[]} | null {
         { label: 'PubMed', url: `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(k.name)}+${encodeURIComponent(k.hospital.substring(0,4))}` }
       ]
     }))
-  return { drugInfo: mapping.drugInfo, kols: matched }
+  return { diseaseInfo: mapping.diseaseInfo, kols: matched }
 }
 
 // ============================================================
 // AI PROMPT — DB 데이터 기반 전략 분석만 (KOL 생성 X)
 // ============================================================
-const STRATEGY_PROMPT = `약품-KOL 학술 전략 분석기. 주어진 논문·학회 데이터만 기반으로 분석.
+const STRATEGY_PROMPT = `질환-KOL 학술 전략 분석기. 주어진 논문·학회 데이터만 기반으로 분석.
 규칙: 추측금지, 방문조언금지, 경쟁사금지, 없는정보생성금지, 각필드 1-2문장
 actions의 text에 근거 논문제목/학회명 필수 명시. DO/DONT는 학술적 관점만.
-JSON응답: {"philosophy":"연구방향 한문장","preferences":[{"condition":"연구질환","approach":"논문에서 보인 접근법"}],"strategy":{"summary":"약품-KOL 학술접점 한문장","actions":[{"icon":"comment","title":"학술화제","text":"논문기반 대화주제(논문명포함)","ref":"PubMed URL"},{"icon":"file","title":"근거자료","text":"연구분야 맞는 자료(학회/가이드라인명포함)","ref":"URL"}],"do":["학술근거 접근법(논문명포함)"],"dont":["피할 접근법"]}}`
+JSON응답: {"philosophy":"연구방향 한문장","preferences":[{"condition":"연구질환","approach":"논문에서 보인 접근법"}],"strategy":{"summary":"질환-KOL 학술접점 한문장","actions":[{"icon":"comment","title":"학술화제","text":"논문기반 대화주제(논문명포함)","ref":"PubMed URL"},{"icon":"file","title":"근거자료","text":"연구분야 맞는 자료(학회/가이드라인명포함)","ref":"URL"}],"do":["학술근거 접근법(논문명포함)"],"dont":["피할 접근법"]}}`
 
 // ============================================================
 // Utilities
@@ -401,20 +404,20 @@ async function ai(env: any, sys: string, msg: string, tokens = 3000) {
 // API Routes
 // ============================================================
 
-// 약품 검색 → DB에서 KOL 목록 반환 (AI 호출 없음, 즉시 응답)
-app.post('/api/drug/analyze', async (c) => {
+// 질환 검색 → DB에서 KOL 목록 반환 (AI 호출 없음, 즉시 응답)
+app.post('/api/disease/analyze', async (c) => {
   let b: any; try { b = await c.req.json() } catch { return c.json({error:'잘못된 요청'},400) }
-  const { drug } = b
-  if (!drug || drug.trim().length < 2) return c.json({error:'약품명 2글자 이상'},400)
-  const result = findKols(drug.trim())
-  if (!result) return c.json({error:`'${drug}' 은(는) 아직 DB에 등록되지 않은 약품입니다. 현재 지원: 피타바스타틴, 엠파글리플로진, 펨브롤리주맙, 엔잘루타마이드, 미라베그론, 데노수맙(Denosumab) 등`},404)
+  const { disease } = b
+  if (!disease || disease.trim().length < 2) return c.json({error:'질환명 2글자 이상'},400)
+  const result = findKols(disease.trim())
+  if (!result) return c.json({error:`'${disease}' 은(는) 아직 DB에 등록되지 않은 질환입니다. 현재 지원: 고콜레스테롤혈증, 이상지질혈증, 제2형당뇨병, 비소세포폐암, 위암, 대장암, 전립선암, 과민성방광, 골다공증, 심부전 등`},404)
   return c.json({success:true, data:result})
 })
 
 // KOL 상세 → DB 정보 + AI 전략 분석
 app.post('/api/kol/detail', async (c) => {
   let b: any; try { b = await c.req.json() } catch { return c.json({error:'잘못된 요청'},400) }
-  const { name, hospital, department, drug, drugInfo, publications, societies, tags } = b
+  const { name, hospital, department, disease, diseaseInfo, publications, societies, tags } = b
   if (!name) return c.json({error:'이름 필요'},400)
 
   // DB에서 KOL 정보 조회 (이름으로)
@@ -440,11 +443,11 @@ app.post('/api/kol/detail', async (c) => {
   const pubStr = kolData.publications.map((p:any) => `- ${p.title} (${p.journal}, ${p.year})`).join('\n')
   const socStr = kolData.societies.join(', ')
   const tagStr = kolData.tags.join(', ')
-  const drugCtx = drugInfo ? `${drugInfo.genericName} (${drugInfo.drugClass}) - ${drugInfo.indication}` : drug || ''
+  const diseaseCtx = diseaseInfo ? `${diseaseInfo.name} (${diseaseInfo.category}) - ${diseaseInfo.description}` : disease || ''
 
   try {
     const strategy = await ai(c.env, STRATEGY_PROMPT,
-      `약품: ${drugCtx}\nKOL: ${name}, ${kolData.hospital}, ${kolData.department}\n전문분야: ${tagStr}\n학회: ${socStr}\n논문:\n${pubStr}`, 4000)
+      `질환: ${diseaseCtx}\nKOL: ${name}, ${kolData.hospital}, ${kolData.department}\n전문분야: ${tagStr}\n학회: ${socStr}\n논문:\n${pubStr}`, 4000)
     kolData.philosophy = strategy.philosophy || ''
     kolData.preferences = strategy.preferences || []
     kolData.strategy = strategy.strategy || { summary:'', actions:[], do:[], dont:[] }
@@ -467,7 +470,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KOL Targeting</title>
+<title>질환별 KOL Targeting</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css" rel="stylesheet">
 <style>
@@ -498,11 +501,11 @@ body{background:#0f172a;color:#e2e8f0;min-height:100vh;margin:0}
 
 <header class="sticky top-0 z-50 backdrop-blur-xl bg-slate-900/80 border-b border-white/5">
   <div class="max-w-4xl mx-auto px-4 h-11 flex items-center gap-2">
-    <div class="w-6 h-6 rounded bg-blue-600 flex items-center justify-center"><i class="fas fa-crosshairs text-white text-[10px]"></i></div>
-    <span class="font-bold text-white text-sm cursor-pointer" onclick="goHome()">KOL Targeting</span>
+    <div class="w-6 h-6 rounded bg-blue-600 flex items-center justify-center"><i class="fas fa-stethoscope text-white text-[10px]"></i></div>
+    <span class="font-bold text-white text-sm cursor-pointer" onclick="goHome()">질환별 KOL Targeting</span>
     <div id="bc" class="text-[11px] text-gray-600 ml-1"></div>
     <div class="flex-1"></div>
-    <span class="text-[9px] text-gray-700">DB v10.1</span>
+    <span class="text-[9px] text-gray-700">DB v11.0</span>
   </div>
 </header>
 
@@ -510,23 +513,23 @@ body{background:#0f172a;color:#e2e8f0;min-height:100vh;margin:0}
 
 <div id="s1" class="anim">
   <div class="text-center mt-16 mb-6">
-    <h2 class="text-2xl font-bold text-white mb-1">약품명으로 KOL 찾기</h2>
+    <h2 class="text-2xl font-bold text-white mb-1">질환명으로 KOL 찾기</h2>
     <p class="text-gray-600 text-xs">DB 기반 실제 교수 데이터 · AI 전략 분석</p>
   </div>
   <div class="max-w-md mx-auto mb-4">
     <div class="relative">
-      <i class="fas fa-pills absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 text-sm"></i>
-      <input id="inp" type="text" placeholder="예: 피타바스타틴" class="w-full pl-9 pr-16 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500" onkeydown="if(event.key==='Enter')go()">
+      <i class="fas fa-stethoscope absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 text-sm"></i>
+      <input id="inp" type="text" placeholder="예: 이상지질혈증" class="w-full pl-9 pr-16 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500" onkeydown="if(event.key==='Enter')go()">
       <button onclick="go()" class="absolute right-1 top-1/2 -translate-y-1/2 px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-500">검색</button>
     </div>
   </div>
   <div class="flex flex-wrap justify-center gap-1.5 mb-16">
-    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('피타바스타틴')">피타바스타틴</span>
-    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('엠파글리플로진')">엠파글리플로진</span>
-    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('엔잘루타마이드')">엔잘루타마이드</span>
-    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('펨브롤리주맙')">펨브롤리주맙</span>
-    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('미라베그론')">미라베그론</span>
-    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('Denosumab')">Denosumab</span>
+    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('이상지질혈증')">이상지질혈증</span>
+    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('제2형당뇨병')">제2형당뇨병</span>
+    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('비소세포폐암')">비소세포폐암</span>
+    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('전립선암')">전립선암</span>
+    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('과민성방광')">과민성방광</span>
+    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('골다공증')">골다공증</span>
   </div>
 </div>
 
@@ -536,40 +539,41 @@ body{background:#0f172a;color:#e2e8f0;min-height:100vh;margin:0}
 </main>
 
 <script>
-let D=null,DRUG='';
+let D=null,DISEASE='';
 const $=id=>document.getElementById(id);
 function show(n){['s1','s2','s3'].forEach((s,i)=>$(s).classList.toggle('hidden',i!==n-1));window.scrollTo(0,0)}
-function goHome(){D=null;DRUG='';show(1);$('bc').innerHTML='';$('inp').value=''}
+function goHome(){D=null;DISEASE='';show(1);$('bc').innerHTML='';$('inp').value=''}
 function goList(){if(D)renderList(D),show(2)}
 function q(d){$('inp').value=d;go()}
 function ref(url){return url?\`<a href="\${url}" target="_blank" class="ref">Ref.</a>\`:''}
 
 async function go(){
   const d=$('inp').value.trim();if(!d||d.length<2)return;
-  DRUG=d;
+  DISEASE=d;
   $('s2').innerHTML='<div class="text-center mt-8"><div class="inline-block w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><p class="text-gray-600 text-xs mt-2">DB 검색 중...</p></div>';
   show(2);
   $('bc').innerHTML=\`<span class="cursor-pointer hover:text-gray-400" onclick="goHome()">홈</span> › \${d}\`;
   try{
-    const r=await(await fetch('/api/drug/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({drug:d})})).json();
+    const r=await(await fetch('/api/disease/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({disease:d})})).json();
     if(!r.success)throw new Error(r.error);
     D=r.data;renderList(r.data);
   }catch(e){$('s2').innerHTML=\`<div class="text-center mt-12"><p class="text-red-400 text-sm">\${e.message}</p><button onclick="goHome()" class="mt-3 text-xs text-gray-500 hover:text-white">다시 시도</button></div>\`}
 }
 
 function renderList(data){
-  const di=data.drugInfo||{};
+  const di=data.diseaseInfo||{};
   const kols=data.kols||[];
-  $('bc').innerHTML=\`<span class="cursor-pointer hover:text-gray-400" onclick="goHome()">홈</span> › \${di.genericName||DRUG}\`;
+  $('bc').innerHTML=\`<span class="cursor-pointer hover:text-gray-400" onclick="goHome()">홈</span> › \${di.name||DISEASE}\`;
   $('s2').innerHTML=\`<div class="anim">
     <div class="flex items-center gap-2 mb-3">
-      <div class="w-7 h-7 rounded bg-blue-600/20 flex items-center justify-center"><i class="fas fa-pills text-blue-400 text-xs"></i></div>
-      <span class="text-white font-semibold text-sm">\${di.genericName||DRUG}</span>
-      <span class="text-gray-600 text-xs">\${di.drugClass||''}</span>
+      <div class="w-7 h-7 rounded bg-blue-600/20 flex items-center justify-center"><i class="fas fa-stethoscope text-blue-400 text-xs"></i></div>
+      <span class="text-white font-semibold text-sm">\${di.name||DISEASE}</span>
+      <span class="text-gray-600 text-xs">\${di.category||''}</span>
       <div class="flex-1"></div>
-      <span class="tag">\${di.therapyArea||''}</span>
+      <span class="tag">\${di.category||''}</span>
     </div>
-    <p class="text-gray-500 text-[11px] mb-3">\${di.indication||''}</p>
+    <p class="text-gray-500 text-[11px] mb-1">\${di.description||''}</p>
+    <p class="text-gray-600 text-[10px] mb-3">주요 진료과: \${(di.specialties||[]).join(', ')}</p>
     <div class="text-[11px] text-gray-600 mb-2">KOL \${kols.length}명 · DB 기반 · 관련도순</div>
     <div class="space-y-1.5">
     \${kols.map((k,i)=>\`
@@ -596,9 +600,9 @@ function renderList(data){
 async function detail(kol){
   $('s3').innerHTML='<div class="space-y-3 mt-2"><div class="card p-4"><div class="flex gap-3"><div class="skel w-12 h-12 rounded-lg"></div><div class="flex-1 space-y-1.5"><div class="skel h-4 w-32 rounded"></div><div class="skel h-3 w-48 rounded"></div></div></div></div><div class="progress"><div class="progress-bar"></div></div><p class="text-center text-gray-600 text-[11px] mt-2">AI 전략 분석 중...</p></div>';
   show(3);
-  $('bc').innerHTML=\`<span class="cursor-pointer hover:text-gray-400" onclick="goHome()">홈</span> › <span class="cursor-pointer hover:text-gray-400" onclick="goList()">\${D?.drugInfo?.genericName||DRUG}</span> › \${kol.name}\`;
+  $('bc').innerHTML=\`<span class="cursor-pointer hover:text-gray-400" onclick="goHome()">홈</span> › <span class="cursor-pointer hover:text-gray-400" onclick="goList()">\${D?.diseaseInfo?.name||DISEASE}</span> › \${kol.name}\`;
   try{
-    const r=await(await fetch('/api/kol/detail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:kol.name,hospital:kol.hospital,department:kol.department,drug:DRUG,drugInfo:D?.drugInfo,publications:kol.publications,societies:kol.societies,tags:kol.tags})})).json();
+    const r=await(await fetch('/api/kol/detail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:kol.name,hospital:kol.hospital,department:kol.department,disease:DISEASE,diseaseInfo:D?.diseaseInfo,publications:kol.publications,societies:kol.societies,tags:kol.tags})})).json();
     if(!r.success)throw new Error(r.error);
     renderDetail(r.data,kol);
   }catch(e){$('s3').innerHTML=\`<div class="text-center mt-12"><p class="text-red-400 text-sm">\${e.message}</p><button onclick="goList()" class="mt-3 text-xs text-gray-500 hover:text-white">목록으로</button></div>\`}
