@@ -88,7 +88,22 @@ HIRA_API_KEY_DECODED=rlfzIHbybI5v+ypYADNAxtC46zk1mRAKiF6YPhUceBOockNojmmwChYJz9a
 ## 배포 상태
 - **Platform**: Cloudflare Pages
 - **Status**: ✅ Active
+- **Production URL**: https://medrep-intelligence.pages.dev
+- **Sandbox URL**: https://3000-ii8z59j4vky73afgyytd4-8f57ffe2.sandbox.novita.ai
 - **Last Updated**: 2026-02-14
+
+## 알려진 이슈
+### Cloudflare Pages에서 OpenAlex API Rate Limit
+- **문제**: Cloudflare Workers 환경에서 OpenAlex API가 HTTP 429 에러 반환 (Insufficient credits)
+- **원인**: Cloudflare Workers가 요청마다 다른 IP를 사용하여 OpenAlex의 polite pool (mailto) 인증이 불안정
+- **로컬 환경**: 정상 작동 ✅ (샌드박스 URL에서 확인 가능)
+  - 김효수: 1,153편, 7,347회 인용, H-index 43 → 85점 (S등급)
+  - 최동훈: 4,255편, 35,466회 인용, H-index 50 → 85점 (S등급)
+  - 박성하: 10,309편, 63,313회 인용, H-index 50 → 85점 (S등급)
+- **해결 방안**:
+  1. **KOL 데이터 캐싱** (Cloudflare KV Storage 활용)
+  2. **OpenAlex 유료 플랜** 가입 (무제한 API 호출)
+  3. **로컬 샌드박스 사용** (현재 정상 작동)
 
 ## 변경 이력
 ### v12.0 (2026-02-14)
@@ -99,6 +114,7 @@ HIRA_API_KEY_DECODED=rlfzIHbybI5v+ypYADNAxtC46zk1mRAKiF6YPhUceBOockNojmmwChYJz9a
 - 다차원 객관적 스코어링 알고리즘 (100점 만점)
 - 5단계 등급 체계 (S/A/B/C/D)
 - 실시간 데이터 시각화 UI
+- 순차적 API 호출 + 재시도 로직으로 rate limit 최소화
 
 ### v11.0 (2026-02-14)
 - 약품명 검색 → 질환명 검색으로 피벗팅
