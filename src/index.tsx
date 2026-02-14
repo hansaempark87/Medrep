@@ -903,7 +903,7 @@ function q(d){$('inp').value=d;go()}
 async function go(){
   const d=$('inp').value.trim();if(!d||d.length<2)return alert('질환명을 2글자 이상 입력해주세요');
   DISEASE=d;
-  $('s2').innerHTML=\`<div class="text-center mt-16 fade-in"><div class="inline-block w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div><h3 class="text-2xl font-bold text-gray-800 mb-2">연구 데이터 분석 중...</h3><p class="text-gray-600">OpenAlex, PubMed, ClinicalTrials에서<br>실시간으로 논문과 인용 데이터를 수집하고 있습니다.</p><p class="text-sm text-gray-500 mt-4">잠시만 기다려주세요 (약 5~10초)</p></div>\`;
+  $('s2').innerHTML=\`<div class="text-center mt-16 fade-in"><div class="inline-block w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div><h3 class="text-2xl font-bold text-gray-800 mb-2">명의 검색 중...</h3><p class="text-gray-600">진료 경력, 학회 활동, 전문성을 종합하여<br>해당 질환 전문의를 찾고 있습니다.</p><p class="text-sm text-gray-500 mt-4">잠시만 기다려주세요</p></div>\`;
   show(2);
   $('bc').innerHTML=\`<a class="text-purple-400 hover:text-purple-600 cursor-pointer" onclick="goHome()">홈</a> <span class="text-gray-400">›</span> <span class="text-gray-600">\${d}</span>\`;
   try{
@@ -941,7 +941,7 @@ function renderList(data){
           <i class="fas fa-graduation-cap text-purple-600"></i>
           <span class="font-semibold text-gray-800">어떻게 평가하나요?</span>
         </div>
-        <p class="text-gray-600 text-sm leading-relaxed">이 분야 전문의들이 <strong>얼마나 많은 논문을 발표했는지</strong>, <strong>그 논문이 다른 학자들에게 얼마나 인용되었는지</strong>, <strong>최근에도 활발히 연구하는지</strong>, <strong>실제 환자를 대상으로 한 임상시험에 참여했는지</strong> 등을 종합하여 객관적으로 평가했습니다.</p>
+        <p class="text-gray-600 text-sm leading-relaxed"><strong>진료 경력</strong>, <strong>해당 질환 전문성</strong>, <strong>학회 리더십</strong>, <strong>병원 명성</strong> 등을 종합하여 환자 중심으로 평가했습니다. 오랜 경험과 해당 질환에 대한 깊은 전문성을 갖춘 의사를 우선적으로 추천합니다.</p>
       </div>
     </div>
     
@@ -982,35 +982,6 @@ function renderList(data){
               <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div class="bg-blue-50 rounded-lg p-2 text-center cursor-help" title="학술지에 게재한 논문 수입니다. 많을수록 해당 분야에서 활발하게 연구하고 있다는 의미입니다.">
                   <div class="stat-icon bg-blue-100 text-blue-600 mx-auto mb-1"><i class="fas fa-file-alt"></i></div>
-                  <div class="text-lg font-bold text-gray-800">\${(rd.openAlex.totalPapers||0).toLocaleString()}편</div>
-                  <div class="text-xs text-gray-600">논문</div>
-                </div>
-                <div class="bg-green-50 rounded-lg p-2 text-center cursor-help" title="다른 연구자들이 이 교수님의 논문을 참고문헌으로 인용한 횟수입니다. 높을수록 학계에서 영향력이 크다는 의미입니다.">
-                  <div class="stat-icon bg-green-100 text-green-600 mx-auto mb-1"><i class="fas fa-quote-right"></i></div>
-                  <div class="text-lg font-bold text-gray-800">\${(rd.openAlex.totalCitations||0).toLocaleString()}회</div>
-                  <div class="text-xs text-gray-600">인용</div>
-                </div>
-                <div class="bg-purple-50 rounded-lg p-2 text-center cursor-help" title="연구자의 학술적 영향력을 나타내는 지표입니다. 높을수록 많은 논문이 많이 인용되었다는 의미입니다.">
-                  <div class="stat-icon bg-purple-100 text-purple-600 mx-auto mb-1"><i class="fas fa-chart-line"></i></div>
-                  <div class="text-lg font-bold text-gray-800">\${rd.openAlex.hIndex||0}</div>
-                  <div class="text-xs text-gray-600">H-index</div>
-                </div>
-                \${rd.pubMed?\`
-                <div class="bg-yellow-50 rounded-lg p-2 text-center cursor-help" title="최근 5년간 발표한 논문 수입니다. 현재도 활발히 연구하고 있는지를 보여줍니다.">
-                  <div class="stat-icon bg-yellow-100 text-yellow-600 mx-auto mb-1"><i class="fas fa-clock"></i></div>
-                  <div class="text-lg font-bold text-gray-800">\${rd.pubMed.recent5Years||0}편</div>
-                  <div class="text-xs text-gray-600">최근5년</div>
-                </div>
-                \`:''} 
-                \${rd.clinicalTrials?\`
-                <div class="bg-cyan-50 rounded-lg p-2 text-center cursor-help" title="실제 환자를 대상으로 한 임상시험 참여 건수입니다. 실제 진료 경험이 풍부하다는 의미입니다.">
-                  <div class="stat-icon bg-cyan-100 text-cyan-600 mx-auto mb-1"><i class="fas fa-flask"></i></div>
-                  <div class="text-lg font-bold text-gray-800">\${rd.clinicalTrials.total||0}건</div>
-                  <div class="text-xs text-gray-600">임상시험</div>
-                </div>
-                \`:''}
-              </div>
-              \`:\`<p class="text-gray-500 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>연구 데이터 수집 중...</p>\`}
             </div>
             <i class="fas fa-chevron-right text-gray-300 text-xl"></i>
           </div>
@@ -1023,13 +994,13 @@ function renderList(data){
     <div class="card p-5 mt-6 bg-gray-50">
       <h4 class="font-bold text-gray-800 mb-3">등급 기준</h4>
       <div class="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
-        <div><span class="badge badge-gold text-xs">S등급</span> <span class="text-gray-600">95점 이상 · 세계 최고 수준</span></div>
-        <div><span class="badge badge-silver text-xs">A등급</span> <span class="text-gray-600">80~94점 · 국내 최고 수준</span></div>
-        <div><span class="badge badge-bronze text-xs">B등급</span> <span class="text-gray-600">65~79점 · 우수 연구자</span></div>
-        <div><span class="badge badge-normal text-xs">C등급</span> <span class="text-gray-600">50~64점 · 활발한 연구자</span></div>
-        <div><span class="badge bg-gray-200 text-gray-600 text-xs">D등급</span> <span class="text-gray-600">50점 미만</span></div>
+        <div><span class="badge badge-gold text-xs">S등급</span> <span class="text-gray-600">90점 이상 · 최고 명의</span></div>
+        <div><span class="badge badge-silver text-xs">A등급</span> <span class="text-gray-600">80~89점 · 우수 명의</span></div>
+        <div><span class="badge badge-bronze text-xs">B등급</span> <span class="text-gray-600">70~79점 · 양호</span></div>
+        <div><span class="badge badge-normal text-xs">C등급</span> <span class="text-gray-600">60~69점 · 보통</span></div>
+        <div><span class="badge bg-gray-200 text-gray-600 text-xs">D등급</span> <span class="text-gray-600">60점 미만</span></div>
       </div>
-      <p class="text-xs text-gray-500 mt-3">※ 논문, 인용, H-index, 최근 활동, 임상시험을 종합 평가하며, 해당 질환 전문성에 따라 가산점이 부여됩니다.</p>
+      <p class="text-xs text-gray-500 mt-3">※ 진료 경력(30점), 질환 전문성(30점), 학회 리더십(25점), 병원 명성(15점)을 종합하여 환자 중심으로 평가합니다.</p>
     </div>
   </div>\`;
 }
@@ -1055,56 +1026,45 @@ function renderDetail(d,lk){
 
   <div class="card p-4 mb-3">
     <div class="flex items-center gap-3">
-      <div class="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-lg text-white font-bold flex-shrink-0">\${(d.name||lk.name||'?')[0]}</div>
+      <div class="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-lg text-gray-800 font-bold flex-shrink-0">\${(d.name||lk.name||'?')[0]}</div>
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-1.5 flex-wrap">
-          <span class="text-white font-bold">\${d.name||lk.name}</span>
+          <span class="text-gray-800 font-bold">\${d.name||lk.name}</span>
           <span class="chip tier-\${lk.tier||'C'} text-[9px]">\${lk.tier||'?'}</span>
           \${d.profileUrl?\`<a href="\${d.profileUrl}" target="_blank" class="ref">프로필</a>\`:''}
         </div>
-        <p class="text-gray-500 text-[11px]">\${d.hospital||''} · \${d.department||''} · \${d.position||''}</p>
+        <p class="text-gray-600 text-[11px]">\${d.hospital||''} · \${d.department||''} · \${d.position||''}</p>
         <div class="flex flex-wrap gap-1 mt-1">\${(d.tags||[]).map(t=>\`<span class="tag">\${t}</span>\`).join('')}</div>
       </div>
     </div>
   </div>
 
-  <div class="flex gap-1 mb-3 overflow-x-auto" id="tabs">
-    <div class="tab on" onclick="sw('ov',this)">요약</div>
-    <div class="tab" onclick="sw('sc',this)">일정</div>
-    <div class="tab" onclick="sw('rs',this)">논문</div>
-    <div class="tab" onclick="sw('st',this)">전략</div>
-  </div>
-
-  <!-- 요약 -->
-  <div id="t-ov" class="tc on">
-    \${st.summary?\`<div class="card p-3 mb-2 border-l-2 border-blue-500"><p class="text-blue-300 text-xs">\${st.summary}</p>\${(d.refs||[]).length?\`<div class="mt-1.5 flex flex-wrap gap-1">\${d.refs.map(r=>\`<a href="\${r.url}" target="_blank" class="ref">\${r.label}</a>\`).join('')}</div>\`:''}</div>\`:''}
-    \${d.philosophy?\`<div class="card p-3 mb-2"><p class="text-[11px] text-gray-500 mb-1">연구 방향</p><p class="text-gray-300 text-xs">\${d.philosophy}</p></div>\`:''}
-    \${(d.preferences||[]).length?\`<div class="card p-3 mb-2"><p class="text-[11px] text-gray-500 mb-1.5">관심 영역</p>\${d.preferences.map(p=>\`<div class="flex gap-2 mb-1 last:mb-0"><span class="tag flex-shrink-0">\${p.condition}</span><span class="text-gray-400 text-xs">\${p.approach}</span></div>\`).join('')}</div>\`:''}
-    \${(d.societies||[]).length?\`<div class="card p-3"><p class="text-[11px] text-gray-500 mb-1">학회 활동</p>\${d.societies.map(s=>\`<p class="text-gray-400 text-xs">· \${s}</p>\`).join('')}</div>\`:''}
-  </div>
-
-  <!-- 일정 (객관적 사실만 — DB 데이터) -->
-  <div id="t-sc" class="tc">
-    <div class="card p-3">
-      <div class="flex items-center justify-between mb-2">
-        <p class="text-[11px] text-gray-500">외래 일정</p>
-        \${d.scheduleSource?\`<a href="\${d.scheduleSource}" target="_blank" class="ref">출처</a>\`:''}
-      </div>
-      <table class="w-full text-[11px]">
-        <tr>\${days.map(([,l])=>\`<th class="py-1.5 text-center text-gray-500 font-medium">\${l}</th>\`).join('')}</tr>
-        <tr class="border-t border-white/5">\${days.map(([k])=>{
-          const v=sc[k]; if(!v)return\`<td class="py-2 text-center text-gray-700">-</td>\`;
-          if(typeof v==='object'){
-            const am=v.am||'-',pm=v.pm||'-';
-            return\`<td class="py-2 text-center"><div class="\${am!=='-'?'text-green-400':'text-gray-700'}">\${am}</div><div class="\${pm!=='-'?'text-cyan-400':'text-gray-700'}">\${pm}</div></td>\`;
-          }
-          return\`<td class="py-2 text-center text-gray-500">\${v}</td>\`
-        }).join('')}</tr>
-        <tr class="text-[10px] text-gray-600"><td class="pt-1" colspan="5"><span class="text-green-400/60">■</span> 오전 &nbsp;<span class="text-cyan-400/60">■</span> 오후</td></tr>
-      </table>
-      <p class="text-[9px] text-gray-700 mt-2">※ 일정은 병원 공개 데이터 기준이며, 실제 일정은 병원에 직접 확인 필요</p>
+  <!-- 학회 활동 -->
+  \${(d.societies||[]).length?\`<div class="card p-4 mb-3"><h4 class="text-sm font-bold text-gray-800 mb-2"><i class="fas fa-graduation-cap mr-2 text-purple-500"></i>학회 활동</h4>\${d.societies.map(s=>\`<p class="text-gray-600 text-sm mb-1">· \${s}</p>\`).join('')}</div>\`:''}
+  
+  <!-- 외래 일정 -->
+  <div class="card p-4 mb-3">
+    <div class="flex items-center justify-between mb-3">
+      <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-calendar-alt mr-2 text-purple-500"></i>외래 일정</h4>
+      \${d.scheduleSource?\`<a href="\${d.scheduleSource}" target="_blank" class="text-xs text-purple-600 hover:underline">병원 홈페이지</a>\`:''}
     </div>
+    <table class="w-full text-sm">
+      <tr>\${days.map(([,l])=>\`<th class="py-2 text-center text-gray-600 font-medium">\${l}</th>\`).join('')}</tr>
+      <tr class="border-t border-gray-200">\${days.map(([k])=>{
+        const v=sc[k]; if(!v)return\`<td class="py-3 text-center text-gray-400">-</td>\`;
+        if(typeof v==='object'){
+          const am=v.am||'-',pm=v.pm||'-';
+          return\`<td class="py-3 text-center"><div class="\${am!=='-'?'text-green-600 font-medium':'text-gray-400'}">\${am}</div><div class="\${pm!=='-'?'text-blue-600 font-medium':'text-gray-400'} text-xs">\${pm}</div></td>\`;
+        }
+        return\`<td class="py-3 text-center text-gray-500">\${v}</td>\`
+      }).join('')}</tr>
+      <tr class="text-xs text-gray-500"><td class="pt-2" colspan="5"><span class="text-green-600">●</span> 오전 &nbsp;<span class="text-blue-600">●</span> 오후</td></tr>
+    </table>
+    <p class="text-xs text-gray-500 mt-3">※ 일정은 병원 공개 데이터 기준이며, 실제 일정은 병원에 직접 확인 필요</p>
   </div>
+
+  <!-- 주요 논문 -->
+  \${(d.publications||[]).length?\`<div class="card p-4 mb-3"><h4 class="text-sm font-bold text-gray-800 mb-3"><i class="fas fa-file-medical mr-2 text-purple-500"></i>주요 논문</h4>\${d.publications.map(p=>\`<div class="mb-3 pb-3 border-b border-gray-200 last:border-0 last:pb-0 last:mb-0"><p class="text-gray-800 text-sm font-medium mb-1">\${p.title}</p><p class="text-gray-500 text-xs">\${p.journal} (\${p.year})</p>\${p.url?\`<a href="\${p.url}" target="_blank" class="text-xs text-purple-600 hover:underline mt-1 inline-block">PubMed에서 보기</a>\`:''}</div>\`).join('')}</div>\`:''}
 
   <!-- 논문 (Ref 링크 포함) -->
   <div id="t-rs" class="tc">
