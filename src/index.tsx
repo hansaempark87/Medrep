@@ -521,7 +521,7 @@ const KOL_DB: KolEntry[] = [
 // 질환→치료영역 매핑
 const DISEASE_AREA_MAP: Record<string, {areas:string[], diseaseInfo:{name:string,category:string,description:string,specialties:string[]}}> = {
   "고콜레스테롤혈증": {areas:["심혈관","지질대사","스타틴","고혈압"], diseaseInfo:{name:"고콜레스테롤혈증",category:"심혈관/대사질환",description:"혈중 콜레스테롤 수치가 비정상적으로 높은 상태",specialties:["순환기내과","심장내과","내분비내과"]}},
-  "이상지질혈증": {areas:["심혈관","지질대사","스타틴","고혈압"], diseaseInfo:{name:"이상지질혈증",category:"심혈관/대사질환",description:"혈중 지질 수치의 이상 (LDL↑, HDL↓, 중성지방↑)",specialties:["순환기내과","심장내과","내분비내과"]}},
+  "이상지질혈증": {areas:["심혈관","지질대사","스타틴","고혈압"], diseaseInfo:{name:"이상지질혈증",category:"심혈관/대사질환",description:"혈액 속 지방 성분(콜레스테롤, 중성지방)의 균형이 무너진 상태입니다. 나쁜 콜레스테롤(LDL)은 높아지고 좋은 콜레스테롤(HDL)은 낮아져서, 혈관 벽에 기름때가 쌓이면 심근경색이나 뇌졸중 같은 심혈관 질환의 위험이 커집니다.",specialties:["순환기내과","심장내과","내분비내과"]}},
   "제2형당뇨병": {areas:["당뇨","SGLT2","GLP1","내분비","비만"], diseaseInfo:{name:"제2형당뇨병",category:"내분비/대사질환",description:"인슐린 저항성과 분비 장애로 인한 고혈당 상태",specialties:["내분비내과"]}},
   "당뇨병": {areas:["당뇨","SGLT2","GLP1","내분비","비만"], diseaseInfo:{name:"제2형당뇨병",category:"내분비/대사질환",description:"인슐린 저항성과 분비 장애로 인한 고혈당 상태",specialties:["내분비내과"]}},
   "비소세포폐암": {areas:["종양","면역항암","PD-1","폐암","면역관문억제제"], diseaseInfo:{name:"비소세포폐암",category:"악성종양",description:"폐암의 약 85%를 차지하는 암종 (선암, 편평상피암 등)",specialties:["종양내과","혈액종양내과"]}},
@@ -815,13 +815,18 @@ body{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh
 <header class="bg-white shadow-md sticky top-0 z-50">
   <div class="container">
     <div class="flex items-center justify-between py-4">
-      <div class="flex items-center gap-3 cursor-pointer" onclick="goHome()">
-        <div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
-          <i class="fas fa-user-md text-white text-lg"></i>
-        </div>
-        <div>
-          <h1 class="text-lg font-bold text-gray-800">명의찾기</h1>
-          <p class="text-xs text-gray-500">연구로 증명된 진짜 전문의</p>
+      <div class="flex items-center gap-3">
+        <button id="backBtn" class="hidden text-purple-600 hover:text-purple-800 transition" onclick="history.back()">
+          <i class="fas fa-arrow-left text-xl"></i>
+        </button>
+        <div class="flex items-center gap-3 cursor-pointer" onclick="goHome()">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+            <i class="fas fa-user-md text-white text-lg"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold text-gray-800">명의찾기</h1>
+            <p class="text-xs text-gray-500">연구로 증명된 진짜 전문의</p>
+          </div>
         </div>
       </div>
       <div id="bc" class="text-sm text-gray-400"></div>
@@ -878,7 +883,13 @@ body{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh
 <script>
 let D=null,DISEASE='';
 const $=id=>document.getElementById(id);
-function show(n){['s1','s2','s3'].forEach((s,i)=>$(s).classList.toggle('hidden',i!==n-1));window.scrollTo(0,0)}
+function show(n){
+  ['s1','s2','s3'].forEach((s,i)=>$(s).classList.toggle('hidden',i!==n-1));
+  window.scrollTo(0,0);
+  // 뒤로가기 버튼 표시 제어
+  const backBtn = $('backBtn');
+  if(backBtn) backBtn.classList.toggle('hidden', n===1);
+}
 function goHome(){D=null;DISEASE='';show(1);$('bc').innerHTML='';$('inp').value=''}
 function goList(){if(D)renderList(D),show(2)}
 function q(d){$('inp').value=d;go()}
@@ -921,17 +932,17 @@ function renderList(data){
       </div>
       <div class="bg-purple-50 rounded-lg p-4">
         <div class="flex items-center gap-2 mb-2">
-          <i class="fas fa-chart-line text-purple-600"></i>
-          <span class="font-semibold text-gray-800">실시간 연구 데이터 기반 평가</span>
+          <i class="fas fa-graduation-cap text-purple-600"></i>
+          <span class="font-semibold text-gray-800">어떻게 평가하나요?</span>
         </div>
-        <p class="text-gray-600 text-sm">OpenAlex 논문·인용 데이터 + PubMed 최신 연구 + ClinicalTrials.gov 임상시험 데이터를 실시간으로 분석하여 객관적으로 평가했습니다.</p>
+        <p class="text-gray-600 text-sm leading-relaxed">이 분야 전문의들이 <strong>얼마나 많은 논문을 발표했는지</strong>, <strong>그 논문이 다른 학자들에게 얼마나 인용되었는지</strong>, <strong>최근에도 활발히 연구하는지</strong>, <strong>실제 환자를 대상으로 한 임상시험에 참여했는지</strong> 등을 종합하여 객관적으로 평가했습니다.</p>
       </div>
     </div>
     
     <!-- 의료진 목록 헤더 -->
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-xl font-bold text-gray-800">연구 실적 상위 전문의 <span class="text-purple-600">\${kols.length}명</span></h3>
-      <span class="text-sm text-gray-500">연구 점수순 정렬</span>
+      <span class="text-sm text-gray-500">등급순 정렬</span>
     </div>
     
     <!-- 의료진 카드 목록 -->
@@ -940,19 +951,20 @@ function renderList(data){
         const rs=k.realScore||k.score||0;
         const grade=k.grade||k.tier||'D';
         const rd=k.researchData||{};
-        const badgeClass = rs>=85?'badge-gold':rs>=70?'badge-silver':rs>=55?'badge-bronze':'badge-normal';
-        const scoreClass = rs>=85?'score-S':rs>=70?'score-A':rs>=55?'score-B':rs>=40?'score-C':'score-D';
+        const badgeClass = grade==='S'?'badge-gold':grade==='A'?'badge-silver':grade==='B'?'badge-bronze':'badge-normal';
         
         return\`
         <div class="card p-5 cursor-pointer fade-in hover:shadow-xl transition" style="animation-delay:\${i*50}ms" onclick='detail(\${JSON.stringify(k).replace(/'/g,"&#39;")})'>
           <div class="flex items-center gap-4">
-            <div class="score-ring \${scoreClass}">
-              \${Math.round(rs)}
+            <div class="flex-shrink-0">
+              <div class="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl font-bold">
+                \${k.name[0]}
+              </div>
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <h4 class="text-lg font-bold text-gray-800">\${k.name} 교수</h4>
-                <span class="badge \${badgeClass}">\${grade}등급</span>
+                <span class="badge \${badgeClass} text-sm">\${grade}등급</span>
                 \${k.profileUrl?\`<a href="\${k.profileUrl}" target="_blank" class="text-xs text-purple-600 hover:underline" onclick="event.stopPropagation()"><i class="fas fa-external-link-alt mr-1"></i>프로필</a>\`:''}
               </div>
               <p class="text-gray-600 mb-3">
@@ -962,32 +974,32 @@ function renderList(data){
               </p>
               \${rd.openAlex?\`
               <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <div class="bg-blue-50 rounded-lg p-2 text-center">
+                <div class="bg-blue-50 rounded-lg p-2 text-center cursor-help" title="학술지에 게재한 논문 수입니다. 많을수록 해당 분야에서 활발하게 연구하고 있다는 의미입니다.">
                   <div class="stat-icon bg-blue-100 text-blue-600 mx-auto mb-1"><i class="fas fa-file-alt"></i></div>
-                  <div class="text-lg font-bold text-gray-800">\${(rd.openAlex.totalPapers||0).toLocaleString()}</div>
+                  <div class="text-lg font-bold text-gray-800">\${(rd.openAlex.totalPapers||0).toLocaleString()}편</div>
                   <div class="text-xs text-gray-600">논문</div>
                 </div>
-                <div class="bg-green-50 rounded-lg p-2 text-center">
+                <div class="bg-green-50 rounded-lg p-2 text-center cursor-help" title="다른 연구자들이 이 교수님의 논문을 참고문헌으로 인용한 횟수입니다. 높을수록 학계에서 영향력이 크다는 의미입니다.">
                   <div class="stat-icon bg-green-100 text-green-600 mx-auto mb-1"><i class="fas fa-quote-right"></i></div>
-                  <div class="text-lg font-bold text-gray-800">\${(rd.openAlex.totalCitations||0).toLocaleString()}</div>
+                  <div class="text-lg font-bold text-gray-800">\${(rd.openAlex.totalCitations||0).toLocaleString()}회</div>
                   <div class="text-xs text-gray-600">인용</div>
                 </div>
-                <div class="bg-purple-50 rounded-lg p-2 text-center">
+                <div class="bg-purple-50 rounded-lg p-2 text-center cursor-help" title="연구자의 학술적 영향력을 나타내는 지표입니다. 높을수록 많은 논문이 많이 인용되었다는 의미입니다.">
                   <div class="stat-icon bg-purple-100 text-purple-600 mx-auto mb-1"><i class="fas fa-chart-line"></i></div>
                   <div class="text-lg font-bold text-gray-800">\${rd.openAlex.hIndex||0}</div>
                   <div class="text-xs text-gray-600">H-index</div>
                 </div>
                 \${rd.pubMed?\`
-                <div class="bg-yellow-50 rounded-lg p-2 text-center">
+                <div class="bg-yellow-50 rounded-lg p-2 text-center cursor-help" title="최근 5년간 발표한 논문 수입니다. 현재도 활발히 연구하고 있는지를 보여줍니다.">
                   <div class="stat-icon bg-yellow-100 text-yellow-600 mx-auto mb-1"><i class="fas fa-clock"></i></div>
-                  <div class="text-lg font-bold text-gray-800">\${rd.pubMed.recent5Years||0}</div>
+                  <div class="text-lg font-bold text-gray-800">\${rd.pubMed.recent5Years||0}편</div>
                   <div class="text-xs text-gray-600">최근5년</div>
                 </div>
                 \`:''} 
                 \${rd.clinicalTrials?\`
-                <div class="bg-cyan-50 rounded-lg p-2 text-center">
+                <div class="bg-cyan-50 rounded-lg p-2 text-center cursor-help" title="실제 환자를 대상으로 한 임상시험 참여 건수입니다. 실제 진료 경험이 풍부하다는 의미입니다.">
                   <div class="stat-icon bg-cyan-100 text-cyan-600 mx-auto mb-1"><i class="fas fa-flask"></i></div>
-                  <div class="text-lg font-bold text-gray-800">\${rd.clinicalTrials.total||0}</div>
+                  <div class="text-lg font-bold text-gray-800">\${rd.clinicalTrials.total||0}건</div>
                   <div class="text-xs text-gray-600">임상시험</div>
                 </div>
                 \`:''}
