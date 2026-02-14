@@ -5,5 +5,8 @@
   "pages_build_output_dir": "./dist",
   "compatibility_flags": [
     "nodejs_compat"
-  ]
+  ],
+  "vars": {
+    "ENVIRONMENT": "production"
+  }
 }
