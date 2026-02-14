@@ -179,39 +179,41 @@ function calculateKolScore(
     clinical_trials: 0
   }
   
-  // 1. 논문 수 (0-30점) - 로그 스케일
+  // 1. 논문 수 (0-25점) - 로그 스케일 (가중치 감소)
   if (openAlexData?.total_papers) {
-    breakdown.publications = Math.min(30, Math.log10(openAlexData.total_papers + 1) * 15)
+    breakdown.publications = Math.min(25, Math.log10(openAlexData.total_papers + 1) * 12)
   }
   
-  // 2. 인용수 (0-25점) - 로그 스케일
+  // 2. 인용수 (0-30점) - 로그 스케일 (가중치 증가)
   if (openAlexData?.total_citations) {
-    breakdown.citations = Math.min(25, Math.log10(openAlexData.total_citations + 1) * 8)
+    breakdown.citations = Math.min(30, Math.log10(openAlexData.total_citations + 1) * 9)
   }
   
-  // 3. H-index (0-20점) - 선형
+  // 3. H-index (0-30점) - 가장 중요한 지표로 가중치 대폭 증가
   if (openAlexData?.h_index_estimate) {
-    breakdown.h_index = Math.min(20, openAlexData.h_index_estimate * 2)
+    const hIndex = openAlexData.h_index_estimate;
+    // H-index 40 이상이면 만점, 선형 스케일
+    breakdown.h_index = Math.min(30, (hIndex / 40) * 30)
   }
   
-  // 4. 최근 5년 활동 (0-15점) - 최신성 중요
+  // 4. 최근 5년 활동 (0-10점) - 가중치 감소
   if (pubMedData?.recent_5_years) {
-    breakdown.recent_activity = Math.min(15, pubMedData.recent_5_years * 1.5)
+    breakdown.recent_activity = Math.min(10, pubMedData.recent_5_years * 1)
   }
   
-  // 5. 임상시험 (0-10점) - 실제 임상 경험
+  // 5. 임상시험 (0-5점) - 가중치 감소
   if (clinicalTrialsData?.total_trials) {
-    breakdown.clinical_trials = Math.min(10, clinicalTrialsData.total_trials * 2)
+    breakdown.clinical_trials = Math.min(5, clinicalTrialsData.total_trials * 1)
   }
   
   const total = Object.values(breakdown).reduce((sum, val) => sum + val, 0)
   
-  // 등급 산정
+  // 등급 산정 (기준 상향 조정)
   let grade: 'S' | 'A' | 'B' | 'C' | 'D' = 'D'
-  if (total >= 85) grade = 'S'
-  else if (total >= 70) grade = 'A'
-  else if (total >= 55) grade = 'B'
-  else if (total >= 40) grade = 'C'
+  if (total >= 95) grade = 'S'        // 세계 최고 수준
+  else if (total >= 80) grade = 'A'   // 국내 최고 수준
+  else if (total >= 65) grade = 'B'   // 우수
+  else if (total >= 50) grade = 'C'   // 양호
   
   return { total: Math.round(total), breakdown, grade }
 }
@@ -683,13 +685,50 @@ app.post('/api/disease/analyze', async (c) => {
       
       // 스코어 계산
       const scoreData = calculateKolScore(openAlexData, pubMedData, clinicalTrialsData)
-      debugInfo.scoreTotal = scoreData.total
+      
+      // 질환별 전문성 가산점 (최대 +10점)
+      let specialtyBonus = 0
+      if (dbKol && result.diseaseInfo) {
+        const diseaseName = result.diseaseInfo.name.toLowerCase()
+        const diseaseCategory = result.diseaseInfo.category.toLowerCase()
+        
+        // 1. 태그에 질환명이 포함되어 있으면 +5점
+        const hasDiseasTag = dbKol.tags.some(tag => 
+          diseaseName.includes(tag.toLowerCase()) || tag.toLowerCase().includes(diseaseName)
+        )
+        if (hasDiseasTag) specialtyBonus += 5
+        
+        // 2. 태그에 질환 카테고리가 포함되어 있으면 +3점
+        const hasCategoryTag = dbKol.tags.some(tag => 
+          diseaseCategory.includes(tag.toLowerCase()) || tag.toLowerCase().includes(diseaseCategory.split('/')[0])
+        )
+        if (hasCategoryTag && !hasDiseasTag) specialtyBonus += 3
+        
+        // 3. 학회에 질환 관련 키워드가 있으면 +2점
+        const hasSocietyMatch = dbKol.societies.some(society => 
+          diseaseName.includes(society.toLowerCase()) || society.toLowerCase().includes(diseaseName)
+        )
+        if (hasSocietyMatch && !hasDiseasTag) specialtyBonus += 2
+      }
+      
+      const finalScore = Math.min(100, scoreData.total + specialtyBonus)
+      
+      // 최종 등급 재산정
+      let finalGrade: 'S' | 'A' | 'B' | 'C' | 'D' = 'D'
+      if (finalScore >= 95) finalGrade = 'S'
+      else if (finalScore >= 80) finalGrade = 'A'
+      else if (finalScore >= 65) finalGrade = 'B'
+      else if (finalScore >= 50) finalGrade = 'C'
+      
+      debugInfo.scoreTotal = finalScore
+      debugInfo.specialtyBonus = specialtyBonus
       
       kolsWithScores.push({
         ...kol,
-        realScore: scoreData.total,
-        grade: scoreData.grade,
+        realScore: finalScore,
+        grade: finalGrade,
         scoreBreakdown: scoreData.breakdown,
+        specialtyBonus,
         _debug: debugInfo,  // 디버그 정보 포함
         researchData: {
           openAlex: openAlexData ? {
@@ -1017,12 +1056,13 @@ function renderList(data){
     <div class="card p-5 mt-6 bg-gray-50">
       <h4 class="font-bold text-gray-800 mb-3">등급 기준</h4>
       <div class="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
-        <div><span class="badge badge-gold text-xs">S등급</span> <span class="text-gray-600">85점 이상 · 세계적 권위자</span></div>
-        <div><span class="badge badge-silver text-xs">A등급</span> <span class="text-gray-600">70~84점 · 국내 최고 수준</span></div>
-        <div><span class="badge badge-bronze text-xs">B등급</span> <span class="text-gray-600">55~69점 · 우수 연구자</span></div>
-        <div><span class="badge badge-normal text-xs">C등급</span> <span class="text-gray-600">40~54점 · 활발한 연구자</span></div>
-        <div><span class="badge bg-gray-200 text-gray-600 text-xs">D등급</span> <span class="text-gray-600">40점 미만</span></div>
+        <div><span class="badge badge-gold text-xs">S등급</span> <span class="text-gray-600">95점 이상 · 세계 최고 수준</span></div>
+        <div><span class="badge badge-silver text-xs">A등급</span> <span class="text-gray-600">80~94점 · 국내 최고 수준</span></div>
+        <div><span class="badge badge-bronze text-xs">B등급</span> <span class="text-gray-600">65~79점 · 우수 연구자</span></div>
+        <div><span class="badge badge-normal text-xs">C등급</span> <span class="text-gray-600">50~64점 · 활발한 연구자</span></div>
+        <div><span class="badge bg-gray-200 text-gray-600 text-xs">D등급</span> <span class="text-gray-600">50점 미만</span></div>
       </div>
+      <p class="text-xs text-gray-500 mt-3">※ 논문, 인용, H-index, 최근 활동, 임상시험을 종합 평가하며, 해당 질환 전문성에 따라 가산점이 부여됩니다.</p>
     </div>
   </div>\`;
 }
