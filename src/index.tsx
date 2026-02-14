@@ -177,8 +177,8 @@ function calculatePatientCentricScore(
     career: 0,           // 진료 경력 (30점)
     specialty: 0,        // 전문성/질환 매칭 (30점)
     leadership: 0,       // 학회 리더십 (25점)
-    hospital: 0,         // 병원 명성 (15점)
-    publications: 0      // 호환성 유지용 (사용안함)
+    publications: 0,     // 대표 논문 (15점)
+    citations: 0         // 호환성 유지용 (사용안함)
   }
 
   // 1. 진료 경력 (30점) - 환자들이 가장 중요시하는 요소
@@ -219,11 +219,43 @@ function calculatePatientCentricScore(
   }
   breakdown.leadership = leadershipScore
   
-  // 4. 병원 명성 (15점) - 환자 접근성 및 병원 신뢰도
-  const tier = kol.hospitalTier || 'A'
-  if (tier === 'S') breakdown.hospital = 15      // 빅5 병원
-  else if (tier === 'A') breakdown.hospital = 12 // 대형병원
-  else breakdown.hospital = 8                    // 일반병원
+  // 4. 대표 논문 (15점) - 저널 임팩트 및 최근성
+  // 세계 최고 저널 (Nature, Science, NEJM, Lancet, JAMA): 15점
+  // 상위 저널 (Circulation, JACC, BMJ 등): 12점
+  // 일반 국제 저널: 8점
+  // 국내 저널만: 5점
+  const topJournals = ['N Engl J Med', 'NEJM', 'Lancet', 'JAMA', 'Nature', 'Science', 'Cell']
+  const highJournals = ['Circulation', 'J Am Coll Cardiol', 'JACC', 'BMJ', 'European Heart Journal', 'Eur Heart J']
+  
+  let publicationScore = 5  // 기본값
+  let hasRecentPaper = false
+  const currentYear = new Date().getFullYear()
+  
+  for (const pub of kol.publications) {
+    const journal = pub.journal
+    const pubYear = parseInt(pub.year)
+    
+    // 최근 5년 이내 논문 체크
+    if (currentYear - pubYear <= 5) {
+      hasRecentPaper = true
+    }
+    
+    // 저널 임팩트 체크
+    if (topJournals.some(j => journal.includes(j))) {
+      publicationScore = Math.max(publicationScore, 15)
+    } else if (highJournals.some(j => journal.includes(j))) {
+      publicationScore = Math.max(publicationScore, 12)
+    } else if (!journal.includes('Korean') && !journal.includes('한국')) {
+      publicationScore = Math.max(publicationScore, 8)
+    }
+  }
+  
+  // 최근 활동 보너스 (최근 5년 이내 논문 있으면 유지, 없으면 -2점)
+  if (!hasRecentPaper && kol.publications.length > 0) {
+    publicationScore = Math.max(3, publicationScore - 2)
+  }
+  
+  breakdown.publications = publicationScore
   
   const total = Object.values(breakdown).reduce((sum, val) => sum + val, 0)
   
@@ -254,7 +286,6 @@ interface KolEntry {
   profileUrl?: string
   refs?: {label:string, url:string}[]
   careerYears: number  // 진료 경력 년수 (필수)
-  hospitalTier: 'S' | 'A' | 'B'  // 병원 등급 (S: 서울대/아산/삼성/세브란스 등 빅5, A: 대형병원, B: 일반병원)
 }
 
 const KOL_DB: KolEntry[] = [
@@ -274,7 +305,6 @@ const KOL_DB: KolEntry[] = [
     societies: ["대한심장학회 - 회장 역임","한국지질동맥경화학회 - 이사"],
     profileUrl: "https://www.snuh.org/medical/doctor/detail.do?doctorCode=0001",
     careerYears: 30,
-    hospitalTier: 'S'
   },
   {
     name: "최동훈",
@@ -291,7 +321,6 @@ const KOL_DB: KolEntry[] = [
     societies: ["한국지질·동맥경화학회 - 이사장 역임 (2021-2022)","대한고혈압학회 - 회장 역임"],
     profileUrl: "https://sev.severance.healthcare/sev/doctor/doctor-view.do",
     careerYears: 28,
-    hospitalTier: 'S'
   },
   {
     name: "박성하",
@@ -308,7 +337,6 @@ const KOL_DB: KolEntry[] = [
     societies: ["한국지질동맥경화학회 - 학술이사","대한심장학회 - 정회원"],
     profileUrl: "https://sev.severance.healthcare/sev/doctor/doctor-view.do",
     careerYears: 25,
-    hospitalTier: 'S'
   },
   {
     name: "한기훈",
@@ -325,7 +353,6 @@ const KOL_DB: KolEntry[] = [
     societies: ["대한심부전학회 - 회장 역임","대한심장학회 - 이사"],
     profileUrl: "https://www.amc.seoul.kr/asan/doctor/detail.do",
     careerYears: 27,
-    hospitalTier: 'S'
   },
   {
     name: "한기훈",
@@ -707,11 +734,9 @@ app.post('/api/disease/analyze', async (c) => {
         grade: scoreData.grade,
         scoreBreakdown: scoreData.breakdown,
         careerYears: dbKol.careerYears,
-        hospitalTier: dbKol.hospitalTier,
         _debug: {
           name: kol.name,
           careerYears: dbKol.careerYears,
-          hospitalTier: dbKol.hospitalTier,
           hasExactMatch,
           hasCategoryMatch,
           matchCount,
@@ -750,7 +775,7 @@ app.post('/api/kol/detail', async (c) => {
     societies: dbKol?.societies || societies || [],
     refs: dbKol ? [
       ...(dbKol.profileUrl ? [{ label: '병원 프로필', url: dbKol.profileUrl }] : []),
-      { label: 'PubMed 검색', url: `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(dbKol.name)}+${encodeURIComponent(dbKol.hospital.substring(0,4))}` }
+      { label: 'PubMed 검색', url: `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(dbKol.name + ' ' + dbKol.hospital)}` }
     ] : []
   }
 
@@ -889,6 +914,27 @@ body{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh
 <script>
 let D=null,DISEASE='';
 const $=id=>document.getElementById(id);
+
+// 대표 저널 추출 함수
+function getTopJournal(kol) {
+  if (!kol.publications || kol.publications.length === 0) return '-';
+  const topJournals = ['N Engl J Med', 'NEJM', 'Lancet', 'JAMA', 'Nature', 'Science'];
+  const highJournals = ['Circulation', 'J Am Coll Cardiol', 'JACC'];
+  
+  for (const pub of kol.publications) {
+    for (const j of topJournals) {
+      if (pub.journal.includes(j)) return j;
+    }
+  }
+  for (const pub of kol.publications) {
+    for (const j of highJournals) {
+      if (pub.journal.includes(j)) return j.substring(0, 12) + '...';
+    }
+  }
+  
+  return kol.publications[0].journal.substring(0, 15) + (kol.publications[0].journal.length > 15 ? '...' : '');
+}
+
 function show(n){
   ['s1','s2','s3'].forEach((s,i)=>$(s).classList.toggle('hidden',i!==n-1));
   window.scrollTo(0,0);
@@ -987,7 +1033,7 @@ function renderList(data){
                 <div class="bg-green-50 rounded-lg p-3 text-center">
                   <div class="stat-icon bg-green-100 text-green-600 mx-auto mb-1"><i class="fas fa-hospital"></i></div>
                   <div class="text-lg font-bold text-gray-800">\${k.hospitalTier||'?'}급</div>
-                  <div class="text-xs text-gray-600">병원 등급</div>
+                  <div class="text-xs text-gray-600">대표 저널</div>
                 </div>
                 <div class="bg-purple-50 rounded-lg p-3 text-center">
                   <div class="stat-icon bg-purple-100 text-purple-600 mx-auto mb-1"><i class="fas fa-graduation-cap"></i></div>
@@ -1018,7 +1064,7 @@ function renderList(data){
         <div><span class="badge badge-normal text-xs">C등급</span> <span class="text-gray-600">60~69점 · 보통</span></div>
         <div><span class="badge bg-gray-200 text-gray-600 text-xs">D등급</span> <span class="text-gray-600">60점 미만</span></div>
       </div>
-      <p class="text-xs text-gray-500 mt-3">※ 진료 경력(30점), 질환 전문성(30점), 학회 리더십(25점), 병원 명성(15점)을 종합하여 환자 중심으로 평가합니다.</p>
+      <p class="text-xs text-gray-500 mt-3">※ 진료 경력(30점), 질환 전문성(30점), 학회 리더십(25점), 대표 논문(15점)을 종합하여 객관적으로 평가합니다.</p>
     </div>
   </div>\`;
 }
@@ -1084,22 +1130,8 @@ function renderDetail(d,lk){
   <!-- 주요 논문 -->
   \${(d.publications||[]).length?\`<div class="card p-4 mb-3"><h4 class="text-sm font-bold text-gray-800 mb-3"><i class="fas fa-file-medical mr-2 text-purple-500"></i>주요 논문</h4>\${d.publications.map(p=>\`<div class="mb-3 pb-3 border-b border-gray-200 last:border-0 last:pb-0 last:mb-0"><p class="text-gray-800 text-sm font-medium mb-1">\${p.title}</p><p class="text-gray-500 text-xs">\${p.journal} (\${p.year})</p>\${p.url?\`<a href="\${p.url}" target="_blank" class="text-xs text-purple-600 hover:underline mt-1 inline-block">PubMed에서 보기</a>\`:''}</div>\`).join('')}</div>\`:''}
 
-  <!-- 논문 (Ref 링크 포함) -->
-  <div id="t-rs" class="tc">
-    \${(d.publications||[]).length?\`<div class="card p-3"><p class="text-[11px] text-gray-500 mb-1.5">대표 논문</p>\${d.publications.map(p=>\`<div class="mb-2 last:mb-0"><p class="text-gray-300 text-xs">\${p.title}\${p.url?\`<a href="\${p.url}" target="_blank" class="ref">Ref.</a>\`:''}</p><p class="text-gray-600 text-[10px]">\${p.journal||''} (\${p.year||''})</p></div>\`).join('')}</div>\`:'<div class="card p-3"><p class="text-gray-600 text-xs">논문 정보 없음</p></div>'}
-  </div>
-
-  <!-- 전략 (학술적 근거 기반 — 방문 조언 없음) -->
-  <div id="t-st" class="tc">
-    \${(st.actions||[]).length?\`<div class="grid gap-1.5 mb-2" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">\${st.actions.map(a=>{
-      const icons={comment:'fa-comment-dots',file:'fa-file-alt',search:'fa-search',book:'fa-book'};
-      return\`<div class="card p-2.5"><p class="text-[10px] text-gray-500 mb-0.5"><i class="fas \${icons[a.icon]||'fa-info'} mr-1 text-blue-400"></i>\${a.title}</p><p class="text-gray-300 text-xs">\${a.text}\${a.ref?\` <a href="\${a.ref}" target="_blank" class="ref">Ref.</a>\`:''}</p></div>\`
-    }).join('')}</div>\`:''}
-    <div class="grid grid-cols-2 gap-1.5">
-      \${(st.do||[]).length?\`<div class="card p-2.5"><p class="text-green-400 text-[10px] font-medium mb-1">DO <span class="text-gray-600 font-normal">(학술 근거 기반)</span></p>\${st.do.map(x=>\`<p class="text-gray-300 text-[11px] mb-0.5"><i class="fas fa-check text-green-500 text-[9px] mr-1"></i>\${x}</p>\`).join('')}</div>\`:''}
-      \${(st.dont||[]).length?\`<div class="card p-2.5"><p class="text-red-400 text-[10px] font-medium mb-1">DON'T</p>\${st.dont.map(x=>\`<p class="text-gray-300 text-[11px] mb-0.5"><i class="fas fa-times text-red-500 text-[9px] mr-1"></i>\${x}</p>\`).join('')}</div>\`:''}
-    </div>
-  </div>
+  <!-- 관련 링크 -->
+  \${(d.refs||[]).length?\`<div class="card p-4 mb-3"><h4 class="text-sm font-bold text-gray-800 mb-3"><i class="fas fa-link mr-2 text-purple-500"></i>관련 링크</h4>\${d.refs.map(r=>\`<a href="\${r.url}" target="_blank" class="flex items-center gap-2 p-2 rounded hover:bg-gray-50 transition text-sm text-gray-700 hover:text-purple-600 mb-1"><i class="fas fa-external-link-alt text-purple-500"></i>\${r.label}</a>\`).join('')}</div>\`:''}
 
   </div>\`;
 }
