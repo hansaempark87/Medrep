@@ -318,33 +318,68 @@ function assignBadges(data: DoctorEvaluation): string[] {
 
 ## 11. 로드맵
 
-### Phase 1 (현재 v15.0)
+### ✅ Phase 1 (v15.0 - 완료)
 - ✅ 기본 평가 시스템 구축
 - ✅ 대표 논문 저널 기반 평가
-- ✅ 학회 임원진 평가
-- ✅ 수상 경력 평가
+- ✅ 학회 임원진 평가 (수동 데이터)
+- ✅ 수상 경력 평가 (수동 데이터)
 
-### Phase 2 (v16.0 - 계획)
-- [ ] 3축 평가 모델 적용 (권위성, 전문성, 신뢰성)
-- [ ] 진료 가이드라인 저자 데이터 수집
-- [ ] 임상시험 PI 정보 통합 (ClinicalTrials.gov)
-- [ ] 안전장치 구현 (의료사고 필터링)
+### ✅ Phase 2 (v16.0 - 현재, 일부 완료)
+- ✅ 3축 평가 모델 적용 (학술적 권위, 임상 혁신, 질환 전문화)
+- ✅ 타입 정의 완성 (src/evaluation/types.ts)
+- ✅ 평가 계산 로직 구현 (src/evaluation/calculator.ts)
+- ✅ 데이터 품질 평가 (src/evaluation/dataQuality.ts)
+- ⏳ OpenAlex API 통합 (계획)
+- ⏳ ClinicalTrials.gov API 통합 (계획)
+- ❌ 안전장치 구현 (공개 데이터 없음 - 보류)
 
-### Phase 3 (v17.0 - 계획)
+### Phase 3 (v16.1 - 계획)
+- [ ] OpenAlex 자동 데이터 수집
+- [ ] ClinicalTrials.gov 자동 데이터 수집
+- [ ] PubMed MeSH terms 기반 질환 특화 분석
+- [ ] UI 업데이트 (3축 점수 시각화)
+
+### Phase 4 (v17.0 - 계획)
 - [ ] 배지 시스템 구현
-- [ ] 질환 특화도 분석
-- [ ] H-index 자동 수집
-- [ ] 상세 점수 분해 UI
-
-### Phase 4 (v18.0 - 계획)
 - [ ] 자동 데이터 업데이트 파이프라인
 - [ ] 이의제기 프로세스
-- [ ] 다국어 지원
 - [ ] 비교 기능 (최대 3명)
+
+### Phase 5 (v18.0 - 장기 계획)
+- [ ] 다국어 지원
+- [ ] 지역별 필터링
+- [ ] API 공개 (개발자 문서)
+- [ ] 모바일 앱
 
 ---
 
-**문서 버전**: 1.0  
+**문서 버전**: 1.1 (v16.0 반영)  
 **최종 수정**: 2026-02-14  
 **작성자**: MedRep Intelligence Team  
 **라이선스**: CC BY-NC-SA 4.0 (비상업적 이용, 출처 표시)
+
+## 부록: v16.0 현실적 데이터 제약사항
+
+### 사용 가능한 데이터 소스
+✅ **OpenAlex**: 논문/인용/H-index, 저자 위치, 연구 분야  
+✅ **ClinicalTrials.gov**: PI 정보, 시험 상태  
+✅ **PubMed**: MeSH terms 기반 질환 특화 논문
+
+### 사용 불가능한 데이터 (보류)
+❌ **의료분쟁 이력**: 개인정보 보호법  
+❌ **학회 임원 정보**: 공개 API 없음 (수동 수집 필요)  
+❌ **가이드라인 저자**: 공개 API 없음 (수동 수집 필요)  
+❌ **개인 진료량**: HIRA 비공개  
+❌ **환자 리뷰**: 조작 가능성
+
+### v16.0 구현 완료 항목
+✅ 타입 정의 (src/evaluation/types.ts)  
+✅ 3축 평가 계산 (src/evaluation/calculator.ts)  
+✅ 데이터 품질 평가 (src/evaluation/dataQuality.ts)  
+✅ 모듈 진입점 (src/evaluation/index.ts)
+
+### 향후 통합 예정
+⏳ OpenAlex API 자동 수집  
+⏳ ClinicalTrials.gov API 자동 수집  
+⏳ PubMed MeSH terms 분석  
+⏳ UI 3축 점수 시각화
