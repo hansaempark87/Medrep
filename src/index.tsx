@@ -978,10 +978,28 @@ function renderList(data){
                 <span class="mx-2">·</span>
                 <i class="fas fa-stethoscope mr-1 text-purple-500"></i>\${k.department||''}
               </p>
-              \${rd.openAlex?\`
-              <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <div class="bg-blue-50 rounded-lg p-2 text-center cursor-help" title="학술지에 게재한 논문 수입니다. 많을수록 해당 분야에서 활발하게 연구하고 있다는 의미입니다.">
-                  <div class="stat-icon bg-blue-100 text-blue-600 mx-auto mb-1"><i class="fas fa-file-alt"></i></div>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="bg-blue-50 rounded-lg p-3 text-center">
+                  <div class="stat-icon bg-blue-100 text-blue-600 mx-auto mb-1"><i class="fas fa-user-md"></i></div>
+                  <div class="text-lg font-bold text-gray-800">\${k.careerYears||'?'}년</div>
+                  <div class="text-xs text-gray-600">진료 경력</div>
+                </div>
+                <div class="bg-green-50 rounded-lg p-3 text-center">
+                  <div class="stat-icon bg-green-100 text-green-600 mx-auto mb-1"><i class="fas fa-hospital"></i></div>
+                  <div class="text-lg font-bold text-gray-800">\${k.hospitalTier||'?'}급</div>
+                  <div class="text-xs text-gray-600">병원 등급</div>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-3 text-center">
+                  <div class="stat-icon bg-purple-100 text-purple-600 mx-auto mb-1"><i class="fas fa-graduation-cap"></i></div>
+                  <div class="text-lg font-bold text-gray-800">\${(k.societies||[]).length}개</div>
+                  <div class="text-xs text-gray-600">학회 활동</div>
+                </div>
+                <div class="bg-yellow-50 rounded-lg p-3 text-center">
+                  <div class="stat-icon bg-yellow-100 text-yellow-600 mx-auto mb-1"><i class="fas fa-file-medical"></i></div>
+                  <div class="text-lg font-bold text-gray-800">\${(k.publications||[]).length}편</div>
+                  <div class="text-xs text-gray-600">주요 논문</div>
+                </div>
+              </div>
             </div>
             <i class="fas fa-chevron-right text-gray-300 text-xl"></i>
           </div>
