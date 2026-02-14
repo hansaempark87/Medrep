@@ -27,13 +27,19 @@ async function searchOpenAlex(authorName: string, apiKey?: string): Promise<any>
     console.log(`[OpenAlex] Searching for: ${authorName}`)
     console.log(`[OpenAlex] URL: ${url}`)
     
-    const response = await fetch(url)
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'MedRep-Intelligence/1.0 (research-driven KOL finder)'
+      }
+    })
     
     console.log(`[OpenAlex] Response status: ${response.status}`)
     
     if (!response.ok) {
+      const errorText = await response.text()
       console.error(`[OpenAlex] Failed: ${response.status} ${response.statusText}`)
-      return null
+      console.error(`[OpenAlex] Error body: ${errorText.substring(0, 200)}`)
+      return { error: `HTTP ${response.status}: ${errorText.substring(0, 100)}`, total_papers: 0, top_papers: [], total_citations: 0, h_index_estimate: 0 }
     }
     
     const data = await response.json()
@@ -52,9 +58,9 @@ async function searchOpenAlex(authorName: string, apiKey?: string): Promise<any>
       total_citations: data.results?.reduce((sum: number, work: any) => sum + (work.cited_by_count || 0), 0) || 0,
       h_index_estimate: calculateHIndex(data.results?.map((w: any) => w.cited_by_count || 0) || [])
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error('[OpenAlex] API Error:', e)
-    return null
+    return { error: e.message || 'Unknown error', total_papers: 0, top_papers: [], total_citations: 0, h_index_estimate: 0 }
   }
 }
 
@@ -621,19 +627,54 @@ app.post('/api/disease/analyze', async (c) => {
   const result = findKols(disease.trim())
   if (!result) return c.json({error:`'${disease}' 은(는) 아직 DB에 등록되지 않은 질환입니다. 현재 지원: 고콜레스테롤혈증, 이상지질혈증, 제2형당뇨병, 비소세포폐암, 위암, 대장암, 전립선암, 과민성방광, 골다공증, 심부전 등`},404)
   
-  // 실시간 외부 API 데이터로 스코어링 (OpenAlex 우선, 나머지는 선택적)
-  const kolsWithScores = await Promise.all(result.kols.map(async (kol) => {
+  // 실시간 외부 API 데이터로 스코어링 (순차적으로 호출하여 rate limit 방지)
+  const kolsWithScores = []
+  for (const kol of result.kols) {
+    const debugInfo: any = { name: kol.name }
     try {
       // DB에서 영문 이름 조회
       const dbKol = KOL_DB.find(k => k.name === kol.name)
       const searchName = dbKol?.nameEn || kol.name
+      debugInfo.searchName = searchName
       
       // API 키 폴백 (환경변수가 없을 때 기본값 사용)
       const openAlexKey = c.env.OPENALEX_API_KEY || 'fYbUihvp4sW9jWZqoe8eLo'
       const pubMedKey = c.env.PUBMED_API_KEY || 'c99e77f35b8b407dcab9b43564ce1a924408'
+      debugInfo.hasOpenAlexKey = !!openAlexKey
       
-      // OpenAlex만 필수로 호출 (가장 빠르고 안정적)
-      const openAlexData = await searchOpenAlex(searchName, openAlexKey)
+      // OpenAlex 호출 (순차적, 재시도 로직 포함)
+      let openAlexData = null
+      let retryCount = 0
+      const maxRetries = 3
+      
+      while (!openAlexData && retryCount < maxRetries) {
+        if (retryCount > 0) {
+          // 재시도 전 대기 (지수 백오프: 1초, 2초, 4초)
+          const waitTime = Math.pow(2, retryCount) * 1000
+          console.log(`OpenAlex retry ${retryCount} for ${searchName}, waiting ${waitTime}ms`)
+          await new Promise(resolve => setTimeout(resolve, waitTime))
+        }
+        
+        openAlexData = await searchOpenAlex(searchName, openAlexKey)
+        
+        if (openAlexData?.error && openAlexData.error.includes('429')) {
+          console.warn(`OpenAlex rate limit hit for ${searchName}, retry ${retryCount + 1}/${maxRetries}`)
+          openAlexData = null
+          retryCount++
+        } else {
+          break
+        }
+      }
+      
+      debugInfo.openAlexSuccess = !!openAlexData
+      debugInfo.openAlexPapers = openAlexData?.total_papers || 0
+      debugInfo.openAlexRetries = retryCount
+      if (openAlexData?.error) {
+        debugInfo.openAlexError = openAlexData.error
+      }
+      
+      // Rate limit 방지를 위한 KOL 간 지연 (500ms로 증가)
+      await new Promise(resolve => setTimeout(resolve, 500))
       
       // PubMed와 ClinicalTrials는 선택적 (에러 시 null 반환)
       let pubMedData = null
@@ -641,24 +682,30 @@ app.post('/api/disease/analyze', async (c) => {
       
       try {
         pubMedData = await searchPubMed(searchName, disease, pubMedKey)
-      } catch (e) {
+        debugInfo.pubMedSuccess = !!pubMedData
+      } catch (e: any) {
         console.warn(`PubMed failed for ${searchName}`)
+        debugInfo.pubMedError = e.message
       }
       
       try {
         clinicalTrialsData = await searchClinicalTrials(searchName)
-      } catch (e) {
+        debugInfo.clinicalTrialsSuccess = !!clinicalTrialsData
+      } catch (e: any) {
         console.warn(`ClinicalTrials failed for ${searchName}`)
+        debugInfo.clinicalTrialsError = e.message
       }
       
       // 스코어 계산
       const scoreData = calculateKolScore(openAlexData, pubMedData, clinicalTrialsData)
+      debugInfo.scoreTotal = scoreData.total
       
-      return {
+      kolsWithScores.push({
         ...kol,
         realScore: scoreData.total,
         grade: scoreData.grade,
         scoreBreakdown: scoreData.breakdown,
+        _debug: debugInfo,  // 디버그 정보 포함
         researchData: {
           openAlex: openAlexData ? {
             totalPapers: openAlexData.total_papers,
@@ -676,13 +723,14 @@ app.post('/api/disease/analyze', async (c) => {
             studies: clinicalTrialsData.studies.slice(0, 3)
           } : null
         }
-      }
-    } catch (e) {
+      })
+    } catch (e: any) {
       // API 실패 시 기본 스코어 유지
       console.error(`Failed to fetch data for ${kol.name}:`, e)
-      return { ...kol, realScore: kol.score, grade: kol.tier }
+      debugInfo.error = e.message
+      kolsWithScores.push({ ...kol, realScore: kol.score, grade: kol.tier, _debug: debugInfo })
     }
-  }))
+  }
   
   // 실제 스코어로 재정렬
   const sortedKols = kolsWithScores.sort((a, b) => (b.realScore || b.score) - (a.realScore || a.score))
