@@ -1021,7 +1021,7 @@ function renderList(data){
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <h4 class="text-lg font-bold text-gray-800">\${k.name} 교수</h4>
-                <span class="badge \${badgeClass} text-sm">\${grade}등급</span>
+                <span class="badge \${badgeClass} text-sm">\${grade}등급 \${rs}점</span>
                 \${k.profileUrl?\`<a href="\${k.profileUrl}" target="_blank" class="text-xs text-purple-600 hover:underline" onclick="event.stopPropagation()"><i class="fas fa-external-link-alt mr-1"></i>프로필</a>\`:''}
               </div>
               <p class="text-gray-600 mb-3">
@@ -1029,20 +1029,45 @@ function renderList(data){
                 <span class="mx-2">·</span>
                 <i class="fas fa-stethoscope mr-1 text-purple-500"></i>\${k.department||''}
               </p>
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <div class="bg-blue-50 rounded-lg p-3 text-center">
-                  <div class="stat-icon bg-blue-100 text-blue-600 mx-auto mb-1"><i class="fas fa-journal-whills"></i></div>
-                  <div class="text-xs font-bold text-gray-800">\${k.publications[0]?.journal?.split(' ').slice(0,3).join(' ')||'국내저널'}</div>
+              
+              <!-- 점수 분해 표시 -->
+              \${k.scoreBreakdown ? \`
+              <div class="bg-gray-50 rounded-lg p-3 mb-3">
+                <div class="text-xs font-semibold text-gray-700 mb-2">왜 \${grade}등급인가요?</div>
+                <div class="space-y-1">
+                  <div class="flex justify-between text-xs">
+                    <span class="text-gray-600">대표 논문</span>
+                    <span class="font-semibold text-gray-800">\${k.scoreBreakdown.publications||0}점</span>
+                  </div>
+                  <div class="flex justify-between text-xs">
+                    <span class="text-gray-600">학회 임원진</span>
+                    <span class="font-semibold text-gray-800">\${k.scoreBreakdown.leadership||0}점</span>
+                  </div>
+                  <div class="flex justify-between text-xs">
+                    <span class="text-gray-600">질환 전문성</span>
+                    <span class="font-semibold text-gray-800">\${k.scoreBreakdown.specialty||0}점</span>
+                  </div>
+                  \${k.scoreBreakdown.awards ? \`
+                  <div class="flex justify-between text-xs">
+                    <span class="text-gray-600">수상 경력</span>
+                    <span class="font-semibold text-gray-800">\${k.scoreBreakdown.awards}점</span>
+                  </div>
+                  \` : ''}
+                </div>
+              </div>
+              \` : ''}
+              
+              <div class="grid grid-cols-3 gap-2">
+                <div class="bg-blue-50 rounded-lg p-2 text-center">
+                  <div class="text-sm font-bold text-gray-800">\${k.publications[0]?.journal?.split(' ')[0]||'국내'}</div>
                   <div class="text-xs text-gray-600">대표 저널</div>
                 </div>
-                <div class="bg-purple-50 rounded-lg p-3 text-center">
-                  <div class="stat-icon bg-purple-100 text-purple-600 mx-auto mb-1"><i class="fas fa-graduation-cap"></i></div>
-                  <div class="text-lg font-bold text-gray-800">\${(k.societies||[]).length}개</div>
+                <div class="bg-purple-50 rounded-lg p-2 text-center">
+                  <div class="text-sm font-bold text-gray-800">\${(k.societies||[]).length}개</div>
                   <div class="text-xs text-gray-600">학회 활동</div>
                 </div>
-                <div class="bg-yellow-50 rounded-lg p-3 text-center">
-                  <div class="stat-icon bg-yellow-100 text-yellow-600 mx-auto mb-1"><i class="fas fa-file-medical"></i></div>
-                  <div class="text-lg font-bold text-gray-800">\${(k.publications||[]).length}편</div>
+                <div class="bg-yellow-50 rounded-lg p-2 text-center">
+                  <div class="text-sm font-bold text-gray-800">\${(k.publications||[]).length}편</div>
                   <div class="text-xs text-gray-600">주요 논문</div>
                 </div>
               </div>
@@ -1094,11 +1119,12 @@ function renderDetail(d,lk){
 
   <div class="card p-4 mb-3">
     <div class="flex items-center gap-3">
-      <div class="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-lg text-gray-800 font-bold flex-shrink-0">\${(d.name||lk.name||'?')[0]}</div>
+      <div class="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-lg text-white font-bold flex-shrink-0">\${(d.name||lk.name||'?')[0]}</div>
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-1.5 flex-wrap">
           <span class="text-gray-800 font-bold">\${d.name||lk.name}</span>
-          <span class="chip tier-\${lk.tier||'C'} text-[9px]">\${lk.tier||'?'}</span>
+          <span class="chip tier-\${lk.grade||lk.tier||'C'} text-[9px]">\${lk.grade||lk.tier||'?'}등급</span>
+          \${lk.realScore ? \`<span class="text-xs text-gray-600">\${lk.realScore}점</span>\` : ''}
           \${d.profileUrl?\`<a href="\${d.profileUrl}" target="_blank" class="ref">프로필</a>\`:''}
         </div>
         <p class="text-gray-600 text-[11px]">\${d.hospital||''} · \${d.department||''} · \${d.position||''}</p>
@@ -1106,6 +1132,75 @@ function renderDetail(d,lk){
       </div>
     </div>
   </div>
+
+  <!-- 평가 점수 분해 -->
+  \${lk.scoreBreakdown ? \`
+  <div class="card p-4 mb-3 bg-gradient-to-r from-purple-50 to-pink-50">
+    <h4 class="text-sm font-bold text-gray-800 mb-3"><i class="fas fa-chart-bar mr-2 text-purple-600"></i>왜 \${lk.grade||lk.tier}등급인가요?</h4>
+    <div class="space-y-3">
+      <!-- 대표 논문 -->
+      <div>
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-semibold text-gray-700">대표 논문 저널</span>
+          <span class="text-sm font-bold text-purple-600">\${lk.scoreBreakdown.publications||0}점 / 40점</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+          <div class="bg-purple-600 h-2 rounded-full" style="width: \${((lk.scoreBreakdown.publications||0)/40*100).toFixed(1)}%"></div>
+        </div>
+        <p class="text-xs text-gray-600 mt-1">\${d.publications?.[0]?.journal || '대표 논문 저널 정보'}</p>
+      </div>
+      
+      <!-- 학회 임원진 -->
+      <div>
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-semibold text-gray-700">학회 임원진 활동</span>
+          <span class="text-sm font-bold text-blue-600">\${lk.scoreBreakdown.leadership||0}점 / 30점</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+          <div class="bg-blue-600 h-2 rounded-full" style="width: \${((lk.scoreBreakdown.leadership||0)/30*100).toFixed(1)}%"></div>
+        </div>
+        <p class="text-xs text-gray-600 mt-1">\${d.societies?.length ? d.societies[0] : '학회 활동 정보'}</p>
+      </div>
+      
+      <!-- 질환 전문성 -->
+      <div>
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-semibold text-gray-700">질환 전문성</span>
+          <span class="text-sm font-bold text-green-600">\${lk.scoreBreakdown.specialty||0}점 / 20점</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+          <div class="bg-green-600 h-2 rounded-full" style="width: \${((lk.scoreBreakdown.specialty||0)/20*100).toFixed(1)}%"></div>
+        </div>
+        <p class="text-xs text-gray-600 mt-1">\${d.tags?.join(', ') || '전문 분야'}</p>
+      </div>
+      
+      <!-- 수상 경력 -->
+      \${lk.scoreBreakdown.awards ? \`
+      <div>
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-semibold text-gray-700">수상 경력</span>
+          <span class="text-sm font-bold text-yellow-600">\${lk.scoreBreakdown.awards}점 / 10점</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+          <div class="bg-yellow-600 h-2 rounded-full" style="width: \${(lk.scoreBreakdown.awards/10*100).toFixed(1)}%"></div>
+        </div>
+        <p class="text-xs text-gray-600 mt-1">\${d.awards?.[0] || '수상 경력'}</p>
+      </div>
+      \` : ''}
+      
+      <!-- 총점 -->
+      <div class="pt-3 border-t border-gray-300">
+        <div class="flex justify-between items-center">
+          <span class="text-sm font-bold text-gray-800">총점</span>
+          <span class="text-xl font-bold text-gray-900">\${lk.realScore||0}점 / 100점</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-3 mt-2">
+          <div class="bg-gradient-to-r from-purple-600 to-pink-600 h-3 rounded-full" style="width: \${lk.realScore||0}%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  \` : ''}
 
   <!-- 학회 활동 -->
   \${(d.societies||[]).length?\`<div class="card p-4 mb-3"><h4 class="text-sm font-bold text-gray-800 mb-2"><i class="fas fa-graduation-cap mr-2 text-purple-500"></i>학회 활동</h4>\${d.societies.map(s=>\`<p class="text-gray-600 text-sm mb-1">· \${s}</p>\`).join('')}</div>\`:''}
