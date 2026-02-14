@@ -23,9 +23,22 @@ async function searchOpenAlex(authorName: string, apiKey?: string): Promise<any>
     const mailto = apiKey ? `&mailto=${apiKey}` : ''
     // search 파라미터 사용 (filter보다 더 유연함)
     const url = `https://api.openalex.org/works?search=${encodeURIComponent(authorName)}&per-page=50&sort=cited_by_count:desc${mailto}`
+    
+    console.log(`[OpenAlex] Searching for: ${authorName}`)
+    console.log(`[OpenAlex] URL: ${url}`)
+    
     const response = await fetch(url)
-    if (!response.ok) return null
+    
+    console.log(`[OpenAlex] Response status: ${response.status}`)
+    
+    if (!response.ok) {
+      console.error(`[OpenAlex] Failed: ${response.status} ${response.statusText}`)
+      return null
+    }
+    
     const data = await response.json()
+    console.log(`[OpenAlex] Found ${data.meta?.count || 0} papers`)
+    
     return {
       total_papers: data.meta?.count || 0,
       top_papers: data.results?.slice(0, 10).map((work: any) => ({
@@ -40,7 +53,7 @@ async function searchOpenAlex(authorName: string, apiKey?: string): Promise<any>
       h_index_estimate: calculateHIndex(data.results?.map((w: any) => w.cited_by_count || 0) || [])
     }
   } catch (e) {
-    console.error('OpenAlex API Error:', e)
+    console.error('[OpenAlex] API Error:', e)
     return null
   }
 }
@@ -615,15 +628,19 @@ app.post('/api/disease/analyze', async (c) => {
       const dbKol = KOL_DB.find(k => k.name === kol.name)
       const searchName = dbKol?.nameEn || kol.name
       
+      // API 키 폴백 (환경변수가 없을 때 기본값 사용)
+      const openAlexKey = c.env.OPENALEX_API_KEY || 'fYbUihvp4sW9jWZqoe8eLo'
+      const pubMedKey = c.env.PUBMED_API_KEY || 'c99e77f35b8b407dcab9b43564ce1a924408'
+      
       // OpenAlex만 필수로 호출 (가장 빠르고 안정적)
-      const openAlexData = await searchOpenAlex(searchName, c.env.OPENALEX_API_KEY)
+      const openAlexData = await searchOpenAlex(searchName, openAlexKey)
       
       // PubMed와 ClinicalTrials는 선택적 (에러 시 null 반환)
       let pubMedData = null
       let clinicalTrialsData = null
       
       try {
-        pubMedData = await searchPubMed(searchName, disease, c.env.PUBMED_API_KEY)
+        pubMedData = await searchPubMed(searchName, disease, pubMedKey)
       } catch (e) {
         console.warn(`PubMed failed for ${searchName}`)
       }
