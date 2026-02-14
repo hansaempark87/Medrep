@@ -167,67 +167,25 @@ interface KolScore {
 }
 
 // ============================================================
-// SCORING ALGORITHM - 일반인 중심 평가
+// SCORING ALGORITHM - 연구업적 중심 평가
 // ============================================================
 function calculatePatientCentricScore(
   kol: KolEntry,
   diseaseMatch: {isExactMatch: boolean, isCategoryMatch: boolean, matchCount: number}
 ): KolScore {
   const breakdown = {
-    career: 0,           // 진료 경력 (30점)
-    specialty: 0,        // 전문성/질환 매칭 (30점)
-    leadership: 0,       // 학회 리더십 (25점)
-    publications: 0,     // 대표 논문 (15점)
-    citations: 0         // 호환성 유지용 (사용안함)
+    publications: 0,     // 대표 논문 (40점)
+    leadership: 0,       // 학회 임원진 (30점)
+    specialty: 0,        // 질환 전문성 (20점)
+    awards: 0,           // 수상 경력 (10점)
+    career: 0            // 호환성 유지용 (사용안함)
   }
 
-  // 1. 진료 경력 (30점) - 환자들이 가장 중요시하는 요소
-  const years = kol.careerYears || 15  // 기본값 15년
-  if (years >= 30) breakdown.career = 30
-  else if (years >= 25) breakdown.career = 28
-  else if (years >= 20) breakdown.career = 25
-  else if (years >= 15) breakdown.career = 20
-  else if (years >= 10) breakdown.career = 15
-  else breakdown.career = 10
-  
-  // 2. 전문성/질환 매칭 (30점) - 해당 질환 전문가인가?
-  if (diseaseMatch.isExactMatch) {
-    breakdown.specialty = 30  // 질환명이 태그에 정확히 매칭
-  } else if (diseaseMatch.isCategoryMatch) {
-    breakdown.specialty = 25  // 질환 카테고리 매칭
-  } else if (diseaseMatch.matchCount >= 2) {
-    breakdown.specialty = 20  // 치료영역 2개 이상 매칭
-  } else if (diseaseMatch.matchCount >= 1) {
-    breakdown.specialty = 15  // 치료영역 1개 매칭
-  } else {
-    breakdown.specialty = 5   // 일반 심장내과 등
-  }
-  
-  // 3. 학회 리더십 (25점) - 학계 인정도
-  let leadershipScore = 0
-  const societiesStr = kol.societies.join(' ')
-  if (societiesStr.includes('회장 역임') || societiesStr.includes('이사장')) {
-    leadershipScore = 25  // 학회 회장
-  } else if (societiesStr.includes('부회장') || societiesStr.includes('학술이사')) {
-    leadershipScore = 20  // 임원진
-  } else if (societiesStr.includes('이사')) {
-    leadershipScore = 15  // 이사
-  } else if (societiesStr.includes('정회원')) {
-    leadershipScore = 10  // 정회원
-  } else {
-    leadershipScore = 5   // 기타
-  }
-  breakdown.leadership = leadershipScore
-  
-  // 4. 대표 논문 (15점) - 저널 임팩트 및 최근성
-  // 세계 최고 저널 (Nature, Science, NEJM, Lancet, JAMA): 15점
-  // 상위 저널 (Circulation, JACC, BMJ 등): 12점
-  // 일반 국제 저널: 8점
-  // 국내 저널만: 5점
+  // 1. 대표 논문 (40점) - 가장 객관적인 지표
   const topJournals = ['N Engl J Med', 'NEJM', 'Lancet', 'JAMA', 'Nature', 'Science', 'Cell']
   const highJournals = ['Circulation', 'J Am Coll Cardiol', 'JACC', 'BMJ', 'European Heart Journal', 'Eur Heart J']
   
-  let publicationScore = 5  // 기본값
+  let publicationScore = 10  // 기본값 (국내 저널)
   let hasRecentPaper = false
   const currentYear = new Date().getFullYear()
   
@@ -242,29 +200,73 @@ function calculatePatientCentricScore(
     
     // 저널 임팩트 체크
     if (topJournals.some(j => journal.includes(j))) {
-      publicationScore = Math.max(publicationScore, 15)
+      publicationScore = Math.max(publicationScore, 40)
     } else if (highJournals.some(j => journal.includes(j))) {
-      publicationScore = Math.max(publicationScore, 12)
-    } else if (!journal.includes('Korean') && !journal.includes('한국')) {
-      publicationScore = Math.max(publicationScore, 8)
+      publicationScore = Math.max(publicationScore, 30)
+    } else if (!journal.includes('Korean') && !journal.includes('한국') && !journal.includes('대한')) {
+      publicationScore = Math.max(publicationScore, 20)  // 국제 저널
     }
   }
   
-  // 최근 활동 보너스 (최근 5년 이내 논문 있으면 유지, 없으면 -2점)
-  if (!hasRecentPaper && kol.publications.length > 0) {
-    publicationScore = Math.max(3, publicationScore - 2)
+  // 최근 5년 활동 보너스
+  if (hasRecentPaper) {
+    publicationScore = Math.min(40, publicationScore + 5)
   }
   
   breakdown.publications = publicationScore
+  
+  // 2. 학회 임원진 (30점) - 학계 인정도
+  let leadershipScore = 10  // 기본값
+  const societiesStr = kol.societies.join(' ')
+  
+  // 국제 학회 체크
+  if (societiesStr.match(/Asia Pacific|International|World|Global|European|American/i)) {
+    if (societiesStr.includes('회장') || societiesStr.includes('President')) {
+      leadershipScore = 30  // 국제 학회 회장
+    } else if (societiesStr.includes('이사')) {
+      leadershipScore = 25  // 국제 학회 이사
+    }
+  } else if (societiesStr.includes('회장 역임') || societiesStr.includes('이사장')) {
+    leadershipScore = 25  // 국내 주요 학회 회장
+  } else if (societiesStr.includes('부회장') || societiesStr.includes('학술이사')) {
+    leadershipScore = 20  // 임원진
+  } else if (societiesStr.includes('이사')) {
+    leadershipScore = 15  // 이사
+  }
+  
+  breakdown.leadership = leadershipScore
+  
+  // 3. 질환 전문성 (20점)
+  if (diseaseMatch.isExactMatch) {
+    breakdown.specialty = 20  // 질환명 정확 매칭
+  } else if (diseaseMatch.isCategoryMatch) {
+    breakdown.specialty = 15  // 질환 카테고리 매칭
+  } else {
+    breakdown.specialty = 10  // 일반 전문과
+  }
+  
+  // 4. 수상 경력 (10점)
+  let awardScore = 0
+  if (kol.awards && kol.awards.length > 0) {
+    const awardsStr = kol.awards.join(' ')
+    if (awardsStr.match(/훈장|포장|대통령/)) {
+      awardScore = 10  // 국가 훈장
+    } else if (awardsStr.match(/아산의학상|분쉬의학상|호암상/)) {
+      awardScore = 8   // 주요 의학상
+    } else if (awardsStr.match(/학술상|연구상/)) {
+      awardScore = 5   // 학회 학술상
+    }
+  }
+  breakdown.awards = awardScore
   
   const total = Object.values(breakdown).reduce((sum, val) => sum + val, 0)
   
   // 등급 산정
   let grade: 'S' | 'A' | 'B' | 'C' | 'D' = 'D'
-  if (total >= 90) grade = 'S'        // 최고 명의
-  else if (total >= 80) grade = 'A'   // 우수 명의
-  else if (total >= 70) grade = 'B'   // 양호
-  else if (total >= 60) grade = 'C'   // 보통
+  if (total >= 90) grade = 'S'        // 세계적 명의
+  else if (total >= 80) grade = 'A'   // 국내 최고
+  else if (total >= 70) grade = 'B'   // 우수
+  else if (total >= 60) grade = 'C'   // 양호
   
   return { total: Math.round(total), breakdown, grade }
 }
@@ -285,7 +287,7 @@ interface KolEntry {
   societies: string[]
   profileUrl?: string
   refs?: {label:string, url:string}[]
-  careerYears: number  // 진료 경력 년수 (필수)
+  awards?: string[]  // 수상 경력 추가
 }
 
 const KOL_DB: KolEntry[] = [
@@ -302,9 +304,14 @@ const KOL_DB: KolEntry[] = [
       {title:"Intracoronary infusion of mononuclear cells from bone marrow in patients with acute myocardial infarction",journal:"N Engl J Med",year:"2006",url:"https://pubmed.ncbi.nlm.nih.gov/16467544/"},
       {title:"Effect of intracoronary infusion of bone marrow-derived mononuclear cells on LV function in patients with acute MI",journal:"Lancet",year:"2004",url:"https://pubmed.ncbi.nlm.nih.gov/15234398/"}
     ],
-    societies: ["대한심장학회 - 회장 역임","한국지질동맥경화학회 - 이사"],
-    profileUrl: "https://www.snuh.org/medical/doctor/detail.do?doctorCode=0001",
-    careerYears: 30,
+    societies: [
+      "대한심장학회 - 회장 역임 (2021-2022)",
+      "한국지질동맥경화학회 - 이사장 역임 (2016-2018)",
+      "대한심혈관중재학회 - 이사장 역임 (2016-2018)",
+      "Asia Pacific Society of Cardiology - President (2023-현재)"
+    ],
+    awards: ["아산의학상 대상 (2008)", "대한의사협회 분쉬의학상 본상 (2014)", "근정훈장 (2016)"],
+    profileUrl: "https://www.snuh.org/medical/doctor/detail.do?doctorCode=0001"
   },
   {
     name: "최동훈",
@@ -319,8 +326,8 @@ const KOL_DB: KolEntry[] = [
       {title:"Metabolic syndrome and cardiovascular risk in Korean adults",journal:"J Am Coll Cardiol",year:"2010",url:"https://pubmed.ncbi.nlm.nih.gov/20117456/"}
     ],
     societies: ["한국지질·동맥경화학회 - 이사장 역임 (2021-2022)","대한고혈압학회 - 회장 역임"],
-    profileUrl: "https://sev.severance.healthcare/sev/doctor/doctor-view.do",
-    careerYears: 28,
+    awards: [],  // 수상 경력 없음
+    profileUrl: "https://sev.severance.healthcare/sev/doctor/doctor-view.do"
   },
   {
     name: "박성하",
@@ -335,8 +342,8 @@ const KOL_DB: KolEntry[] = [
       {title:"Korean guidelines for the management of dyslipidemia",journal:"J Lipid Atheroscler",year:"2023",url:"https://pubmed.ncbi.nlm.nih.gov/37497051/"}
     ],
     societies: ["한국지질동맥경화학회 - 학술이사","대한심장학회 - 정회원"],
-    profileUrl: "https://sev.severance.healthcare/sev/doctor/doctor-view.do",
-    careerYears: 25,
+    awards: [],  // 수상 경력 없음
+    profileUrl: "https://sev.severance.healthcare/sev/doctor/doctor-view.do"
   },
   {
     name: "한기훈",
@@ -351,8 +358,8 @@ const KOL_DB: KolEntry[] = [
       {title:"Temporal trends in burden of heart failure in Korea",journal:"J Card Fail",year:"2020",url:"https://pubmed.ncbi.nlm.nih.gov/32061849/"}
     ],
     societies: ["대한심부전학회 - 회장 역임","대한심장학회 - 이사"],
-    profileUrl: "https://www.amc.seoul.kr/asan/doctor/detail.do",
-    careerYears: 27,
+    awards: [],  // 수상 경력 없음
+    profileUrl: "https://www.amc.seoul.kr/asan/doctor/detail.do"
   },
   {
     name: "한기훈",
@@ -733,10 +740,8 @@ app.post('/api/disease/analyze', async (c) => {
         realScore: scoreData.total,
         grade: scoreData.grade,
         scoreBreakdown: scoreData.breakdown,
-        careerYears: dbKol.careerYears,
         _debug: {
           name: kol.name,
-          careerYears: dbKol.careerYears,
           hasExactMatch,
           hasCategoryMatch,
           matchCount,
@@ -987,7 +992,7 @@ function renderList(data){
           <i class="fas fa-graduation-cap text-purple-600"></i>
           <span class="font-semibold text-gray-800">어떻게 평가하나요?</span>
         </div>
-        <p class="text-gray-600 text-sm leading-relaxed"><strong>진료 경력</strong>, <strong>해당 질환 전문성</strong>, <strong>학회 리더십</strong>, <strong>병원 명성</strong> 등을 종합하여 환자 중심으로 평가했습니다. 오랜 경험과 해당 질환에 대한 깊은 전문성을 갖춘 의사를 우선적으로 추천합니다.</p>
+        <p class="text-gray-600 text-sm leading-relaxed"><strong>대표 논문 저널</strong>(40점), <strong>학회 임원진</strong>(30점), <strong>질환 전문성</strong>(20점), <strong>수상 경력</strong>(10점)을 종합하여 객관적으로 평가했습니다. 세계적 저널(NEJM, Lancet 등)에 논문을 게재하고 학회 회장 등 리더십을 인정받은 의사를 우선 추천합니다.</p>
       </div>
     </div>
     
@@ -1024,15 +1029,10 @@ function renderList(data){
                 <span class="mx-2">·</span>
                 <i class="fas fa-stethoscope mr-1 text-purple-500"></i>\${k.department||''}
               </p>
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <div class="bg-blue-50 rounded-lg p-3 text-center">
-                  <div class="stat-icon bg-blue-100 text-blue-600 mx-auto mb-1"><i class="fas fa-user-md"></i></div>
-                  <div class="text-lg font-bold text-gray-800">\${k.careerYears||'?'}년</div>
-                  <div class="text-xs text-gray-600">진료 경력</div>
-                </div>
-                <div class="bg-green-50 rounded-lg p-3 text-center">
-                  <div class="stat-icon bg-green-100 text-green-600 mx-auto mb-1"><i class="fas fa-hospital"></i></div>
-                  <div class="text-lg font-bold text-gray-800">\${k.hospitalTier||'?'}급</div>
+                  <div class="stat-icon bg-blue-100 text-blue-600 mx-auto mb-1"><i class="fas fa-journal-whills"></i></div>
+                  <div class="text-xs font-bold text-gray-800">\${k.publications[0]?.journal?.split(' ').slice(0,3).join(' ')||'국내저널'}</div>
                   <div class="text-xs text-gray-600">대표 저널</div>
                 </div>
                 <div class="bg-purple-50 rounded-lg p-3 text-center">
@@ -1042,6 +1042,10 @@ function renderList(data){
                 </div>
                 <div class="bg-yellow-50 rounded-lg p-3 text-center">
                   <div class="stat-icon bg-yellow-100 text-yellow-600 mx-auto mb-1"><i class="fas fa-file-medical"></i></div>
+                  <div class="text-lg font-bold text-gray-800">\${(k.publications||[]).length}편</div>
+                  <div class="text-xs text-gray-600">주요 논문</div>
+                </div>
+              </div>
                   <div class="text-lg font-bold text-gray-800">\${(k.publications||[]).length}편</div>
                   <div class="text-xs text-gray-600">주요 논문</div>
                 </div>
@@ -1064,7 +1068,7 @@ function renderList(data){
         <div><span class="badge badge-normal text-xs">C등급</span> <span class="text-gray-600">60~69점 · 보통</span></div>
         <div><span class="badge bg-gray-200 text-gray-600 text-xs">D등급</span> <span class="text-gray-600">60점 미만</span></div>
       </div>
-      <p class="text-xs text-gray-500 mt-3">※ 진료 경력(30점), 질환 전문성(30점), 학회 리더십(25점), 대표 논문(15점)을 종합하여 객관적으로 평가합니다.</p>
+      <p class="text-xs text-gray-500 mt-3">※ 대표 논문(40점), 학회 임원진(30점), 질환 전문성(20점), 수상 경력(10점)을 종합하여 객관적으로 평가합니다.</p>
     </div>
   </div>\`;
 }
@@ -1105,6 +1109,9 @@ function renderDetail(d,lk){
 
   <!-- 학회 활동 -->
   \${(d.societies||[]).length?\`<div class="card p-4 mb-3"><h4 class="text-sm font-bold text-gray-800 mb-2"><i class="fas fa-graduation-cap mr-2 text-purple-500"></i>학회 활동</h4>\${d.societies.map(s=>\`<p class="text-gray-600 text-sm mb-1">· \${s}</p>\`).join('')}</div>\`:''}
+  
+  <!-- 수상 경력 -->
+  \${(d.awards||[]).length?\`<div class="card p-4 mb-3"><h4 class="text-sm font-bold text-gray-800 mb-2"><i class="fas fa-trophy mr-2 text-yellow-500"></i>수상 경력</h4>\${d.awards.map(a=>\`<p class="text-gray-600 text-sm mb-1">· \${a}</p>\`).join('')}</div>\`:''}
   
   <!-- 외래 일정 -->
   <div class="card p-4 mb-3">
