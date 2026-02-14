@@ -642,39 +642,24 @@ app.post('/api/disease/analyze', async (c) => {
       const pubMedKey = c.env.PUBMED_API_KEY || 'c99e77f35b8b407dcab9b43564ce1a924408'
       debugInfo.hasOpenAlexKey = !!openAlexKey
       
-      // OpenAlex 호출 (순차적, 재시도 로직 포함)
-      let openAlexData = null
-      let retryCount = 0
-      const maxRetries = 3
+      // OpenAlex 호출 (순차적, 단일 재시도)
+      let openAlexData = await searchOpenAlex(searchName, openAlexKey)
       
-      while (!openAlexData && retryCount < maxRetries) {
-        if (retryCount > 0) {
-          // 재시도 전 대기 (지수 백오프: 1초, 2초, 4초)
-          const waitTime = Math.pow(2, retryCount) * 1000
-          console.log(`OpenAlex retry ${retryCount} for ${searchName}, waiting ${waitTime}ms`)
-          await new Promise(resolve => setTimeout(resolve, waitTime))
-        }
-        
+      // 429 에러 시 한 번만 재시도 (1초 대기)
+      if (openAlexData?.error && openAlexData.error.includes('429')) {
+        console.warn(`OpenAlex rate limit for ${searchName}, retrying in 1s...`)
+        await new Promise(resolve => setTimeout(resolve, 1000))
         openAlexData = await searchOpenAlex(searchName, openAlexKey)
-        
-        if (openAlexData?.error && openAlexData.error.includes('429')) {
-          console.warn(`OpenAlex rate limit hit for ${searchName}, retry ${retryCount + 1}/${maxRetries}`)
-          openAlexData = null
-          retryCount++
-        } else {
-          break
-        }
       }
       
       debugInfo.openAlexSuccess = !!openAlexData
       debugInfo.openAlexPapers = openAlexData?.total_papers || 0
-      debugInfo.openAlexRetries = retryCount
       if (openAlexData?.error) {
         debugInfo.openAlexError = openAlexData.error
       }
       
-      // Rate limit 방지를 위한 KOL 간 지연 (500ms로 증가)
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // Rate limit 방지를 위한 KOL 간 지연 (300ms)
+      await new Promise(resolve => setTimeout(resolve, 300))
       
       // PubMed와 ClinicalTrials는 선택적 (에러 시 null 반환)
       let pubMedData = null
