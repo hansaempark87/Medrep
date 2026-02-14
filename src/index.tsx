@@ -779,66 +779,90 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>질환별 KOL Targeting</title>
+<title>명의찾기 - 연구 실적으로 찾는 진짜 전문의</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
-*{font-family:'Noto Sans KR',sans-serif;box-sizing:border-box}
-body{background:#0f172a;color:#e2e8f0;min-height:100vh;margin:0}
-.card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:10px;transition:.15s}
-.card:hover{border-color:rgba(59,130,246,.25)}
-.chip{display:inline-flex;align-items:center;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:500}
-.tier-S{background:#d97706;color:#fef3c7;font-weight:700} .tier-A{background:#b45309;color:#fef3c7} .tier-B{background:#1d4ed8;color:#dbeafe} .tier-C{background:#4b5563;color:#e5e7eb} .tier-D{background:#374151;color:#9ca3af}
-.anim{animation:up .3s ease-out}
-@keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.skel{background:linear-gradient(90deg,rgba(255,255,255,.03) 25%,rgba(255,255,255,.07) 50%,rgba(255,255,255,.03) 75%);background-size:200% 100%;animation:sh 1.2s infinite}
-@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
-.ring{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
-.tab{padding:5px 12px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;color:#64748b;transition:.15s}
-.tab.on{background:rgba(59,130,246,.15);color:#93c5fd}
-.tag{font-size:10px;padding:1px 6px;border-radius:10px;background:rgba(59,130,246,.1);color:#93c5fd}
-.tc{display:none}.tc.on{display:block}
-.ref{font-size:9px;padding:0 5px;border-radius:8px;background:rgba(34,197,94,.1);color:#4ade80;cursor:pointer;text-decoration:none;margin-left:4px;vertical-align:super}
-.ref:hover{background:rgba(34,197,94,.2)}
-.progress{height:3px;background:rgba(59,130,246,.15);border-radius:2px;overflow:hidden;margin-top:8px}
-.progress-bar{height:100%;background:#3b82f6;border-radius:2px;animation:prog 12s linear}
-@keyframes prog{from{width:0}to{width:100%}}
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap');
+*{font-family:'Noto Sans KR',sans-serif;box-sizing:border-box;margin:0;padding:0}
+body{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:#1a202c}
+.container{max-width:800px;margin:0 auto;padding:20px}
+.card{background:white;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.08);transition:all 0.3s ease;overflow:hidden}
+.card:hover{box-shadow:0 8px 30px rgba(0,0,0,0.12);transform:translateY(-2px)}
+.badge{display:inline-flex;align-items:center;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600}
+.badge-gold{background:linear-gradient(135deg,#f6d365 0%,#fda085 100%);color:#fff}
+.badge-silver{background:linear-gradient(135deg,#e0e0e0 0%,#bdbdbd 100%);color:#333}
+.badge-bronze{background:linear-gradient(135deg,#cd7f32 0%,#b8733b 100%);color:#fff}
+.badge-normal{background:#e0e7ff;color:#5b21b6}
+.tag{display:inline-block;padding:4px 10px;background:#f0f4ff;color:#4c51bf;border-radius:8px;font-size:11px;margin:2px}
+.score-ring{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;flex-shrink:0}
+.score-S{background:linear-gradient(135deg,#f6d365 0%,#fda085 100%);color:#fff;box-shadow:0 4px 15px rgba(253,160,133,0.4)}
+.score-A{background:linear-gradient(135deg,#fbc2eb 0%,#a6c1ee 100%);color:#fff;box-shadow:0 4px 15px rgba(166,193,238,0.4)}
+.score-B{background:linear-gradient(135deg,#a1c4fd 0%,#c2e9fb 100%);color:#fff;box-shadow:0 4px 15px rgba(161,196,253,0.4)}
+.score-C{background:#e0e7ff;color:#5b21b6}
+.score-D{background:#f3f4f6;color:#6b7280}
+.btn-primary{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px 24px;border-radius:12px;font-weight:600;border:none;cursor:pointer;transition:all 0.3s}
+.btn-primary:hover{transform:scale(1.05);box-shadow:0 4px 15px rgba(102,126,234,0.4)}
+.tab{padding:10px 20px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;color:#6b7280;transition:all 0.3s;background:transparent;border:none}
+.tab.active{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;box-shadow:0 2px 10px rgba(102,126,234,0.3)}
+.fade-in{animation:fadeIn 0.5s ease-out}
+@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.stat-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px}
 </style>
 </head>
 <body>
 
-<header class="sticky top-0 z-50 backdrop-blur-xl bg-slate-900/80 border-b border-white/5">
-  <div class="max-w-4xl mx-auto px-4 h-11 flex items-center gap-2">
-    <div class="w-6 h-6 rounded bg-blue-600 flex items-center justify-center"><i class="fas fa-microscope text-white text-[10px]"></i></div>
-    <span class="font-bold text-white text-sm cursor-pointer" onclick="goHome()">연구기반 KOL 검색</span>
-    <div id="bc" class="text-[11px] text-gray-600 ml-1"></div>
-    <div class="flex-1"></div>
-    <span class="text-[9px] text-gray-700">v12.0 Research-Driven</span>
+<header class="bg-white shadow-md sticky top-0 z-50">
+  <div class="container">
+    <div class="flex items-center justify-between py-4">
+      <div class="flex items-center gap-3 cursor-pointer" onclick="goHome()">
+        <div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+          <i class="fas fa-user-md text-white text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-gray-800">명의찾기</h1>
+          <p class="text-xs text-gray-500">연구로 증명된 진짜 전문의</p>
+        </div>
+      </div>
+      <div id="bc" class="text-sm text-gray-400"></div>
+    </div>
   </div>
 </header>
 
-<main class="max-w-4xl mx-auto px-4 py-4">
+<main class="container py-8">
 
-<div id="s1" class="anim">
-  <div class="text-center mt-16 mb-6">
-    <h2 class="text-2xl font-bold text-white mb-1">질환명으로 연구명의 찾기</h2>
-    <p class="text-gray-600 text-xs">실시간 논문·인용·임상시험 데이터 기반 객관적 평가</p>
+<div id="s1" class="fade-in">
+  <div class="text-center mb-8">
+    <h2 class="text-4xl font-bold text-white mb-3" style="text-shadow:0 2px 10px rgba(0,0,0,0.2)">어떤 질환을 찾으시나요?</h2>
+    <p class="text-white/90 text-lg">논문, 인용, 임상시험 데이터로 찾는 진짜 명의</p>
   </div>
-  <div class="max-w-md mx-auto mb-4">
-    <div class="relative">
-      <i class="fas fa-stethoscope absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 text-sm"></i>
-      <input id="inp" type="text" placeholder="예: 이상지질혈증" class="w-full pl-9 pr-16 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500" onkeydown="if(event.key==='Enter')go()">
-      <button onclick="go()" class="absolute right-1 top-1/2 -translate-y-1/2 px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-500">검색</button>
+  
+  <div class="max-w-xl mx-auto mb-6">
+    <div class="card p-2">
+      <div class="flex items-center gap-3">
+        <i class="fas fa-search text-purple-500 text-xl ml-3"></i>
+        <input id="inp" type="text" placeholder="예: 이상지질혈증, 당뇨병, 폐암 등" class="flex-1 py-3 text-base focus:outline-none" onkeydown="if(event.key==='Enter')go()">
+        <button onclick="go()" class="btn-primary">검색하기</button>
+      </div>
     </div>
   </div>
-  <div class="flex flex-wrap justify-center gap-1.5 mb-16">
-    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('이상지질혈증')">이상지질혈증</span>
-    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('제2형당뇨병')">제2형당뇨병</span>
-    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('비소세포폐암')">비소세포폐암</span>
-    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('전립선암')">전립선암</span>
-    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('과민성방광')">과민성방광</span>
-    <span class="chip bg-white/5 text-gray-500 cursor-pointer hover:text-blue-300" onclick="q('골다공증')">골다공증</span>
+  
+  <div class="flex flex-wrap justify-center gap-3 mb-8">
+    <button class="badge badge-normal cursor-pointer hover:scale-105 transition" onclick="q('이상지질혈증')"><i class="fas fa-heart mr-1"></i>이상지질혈증</button>
+    <button class="badge badge-normal cursor-pointer hover:scale-105 transition" onclick="q('제2형당뇨병')"><i class="fas fa-heartbeat mr-1"></i>제2형당뇨병</button>
+    <button class="badge badge-normal cursor-pointer hover:scale-105 transition" onclick="q('비소세포폐암')"><i class="fas fa-lungs mr-1"></i>비소세포폐암</button>
+    <button class="badge badge-normal cursor-pointer hover:scale-105 transition" onclick="q('전립선암')"><i class="fas fa-ribbon mr-1"></i>전립선암</button>
+    <button class="badge badge-normal cursor-pointer hover:scale-105 transition" onclick="q('과민성방광')"><i class="fas fa-prescription-bottle mr-1"></i>과민성방광</button>
+    <button class="badge badge-normal cursor-pointer hover:scale-105 transition" onclick="q('골다공증')"><i class="fas fa-bone mr-1"></i>골다공증</button>
+  </div>
+  
+  <div class="card p-6 text-center">
+    <i class="fas fa-info-circle text-purple-500 text-2xl mb-3"></i>
+    <h3 class="font-bold text-lg mb-2">왜 명의찾기인가요?</h3>
+    <p class="text-gray-600 text-sm leading-relaxed">
+      TV나 언론에 나오는 유명한 의사가 아닌, <strong>실제로 연구하고 논문을 발표하는 진짜 전문의</strong>를 찾아드립니다.<br>
+      OpenAlex, PubMed, ClinicalTrials 데이터를 실시간으로 분석하여 객관적인 평가를 제공합니다.
+    </p>
   </div>
 </div>
 
@@ -847,6 +871,10 @@ body{background:#0f172a;color:#e2e8f0;min-height:100vh;margin:0}
 
 </main>
 
+<footer class="text-center text-white/70 py-6 text-sm">
+  <p>© 2026 명의찾기 - 연구 데이터 기반 의료진 검색 서비스</p>
+</footer>
+
 <script>
 let D=null,DISEASE='';
 const $=id=>document.getElementById(id);
@@ -854,68 +882,135 @@ function show(n){['s1','s2','s3'].forEach((s,i)=>$(s).classList.toggle('hidden',
 function goHome(){D=null;DISEASE='';show(1);$('bc').innerHTML='';$('inp').value=''}
 function goList(){if(D)renderList(D),show(2)}
 function q(d){$('inp').value=d;go()}
-function ref(url){return url?\`<a href="\${url}" target="_blank" class="ref">Ref.</a>\`:''}
 
 async function go(){
-  const d=$('inp').value.trim();if(!d||d.length<2)return;
+  const d=$('inp').value.trim();if(!d||d.length<2)return alert('질환명을 2글자 이상 입력해주세요');
   DISEASE=d;
-  $('s2').innerHTML='<div class="text-center mt-8"><div class="inline-block w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><p class="text-gray-600 text-xs mt-2">실시간 연구 데이터 수집 중...</p><p class="text-gray-700 text-[10px] mt-1">OpenAlex, PubMed, ClinicalTrials 검색</p></div>';
+  $('s2').innerHTML=\`<div class="text-center mt-16 fade-in"><div class="inline-block w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div><h3 class="text-2xl font-bold text-gray-800 mb-2">연구 데이터 분석 중...</h3><p class="text-gray-600">OpenAlex, PubMed, ClinicalTrials에서<br>실시간으로 논문과 인용 데이터를 수집하고 있습니다.</p><p class="text-sm text-gray-500 mt-4">잠시만 기다려주세요 (약 5~10초)</p></div>\`;
   show(2);
-  $('bc').innerHTML=\`<span class="cursor-pointer hover:text-gray-400" onclick="goHome()">홈</span> › \${d}\`;
+  $('bc').innerHTML=\`<a class="text-purple-400 hover:text-purple-600 cursor-pointer" onclick="goHome()">홈</a> <span class="text-gray-400">›</span> <span class="text-gray-600">\${d}</span>\`;
   try{
     const r=await(await fetch('/api/disease/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({disease:d})})).json();
     if(!r.success)throw new Error(r.error);
     D=r.data;renderList(r.data);
-  }catch(e){$('s2').innerHTML=\`<div class="text-center mt-12"><p class="text-red-400 text-sm">\${e.message}</p><button onclick="goHome()" class="mt-3 text-xs text-gray-500 hover:text-white">다시 시도</button></div>\`}
+  }catch(e){
+    $('s2').innerHTML=\`<div class="text-center mt-16 fade-in"><div class="card p-8 inline-block"><i class="fas fa-exclamation-circle text-red-500 text-5xl mb-4"></i><h3 class="text-xl font-bold text-gray-800 mb-2">검색 결과를 찾을 수 없습니다</h3><p class="text-gray-600 mb-6">\${e.message}</p><button onclick="goHome()" class="btn-primary">다시 검색하기</button></div></div>\`;
+  }
 }
 
 function renderList(data){
   const di=data.diseaseInfo||{};
   const kols=data.kols||[];
-  $('bc').innerHTML=\`<span class="cursor-pointer hover:text-gray-400" onclick="goHome()">홈</span> › \${di.name||DISEASE}\`;
-  $('s2').innerHTML=\`<div class="anim">
-    <div class="flex items-center gap-2 mb-3">
-      <div class="w-7 h-7 rounded bg-blue-600/20 flex items-center justify-center"><i class="fas fa-microscope text-blue-400 text-xs"></i></div>
-      <span class="text-white font-semibold text-sm">\${di.name||DISEASE}</span>
-      <span class="text-gray-600 text-xs">\${di.category||''}</span>
-      <div class="flex-1"></div>
-      <span class="tag">\${di.category||''}</span>
-    </div>
-    <p class="text-gray-500 text-[11px] mb-1">\${di.description||''}</p>
-    <p class="text-gray-600 text-[10px] mb-3">주요 진료과: \${(di.specialties||[]).join(', ')}</p>
-    <div class="card p-3 mb-3 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-blue-500/20">
-      <p class="text-blue-300 text-xs mb-1"><i class="fas fa-info-circle mr-1"></i>실시간 연구 데이터 기반 평가</p>
-      <p class="text-gray-400 text-[10px]">OpenAlex 논문·인용 데이터 + PubMed 최신 연구 + ClinicalTrials.gov 임상시험</p>
-    </div>
-    <div class="text-[11px] text-gray-600 mb-2">KOL \${kols.length}명 · 연구 점수순 · 실시간 업데이트</div>
-    <div class="space-y-1.5">
-    \${kols.map((k,i)=>{
-      const rs=k.realScore||k.score||0;
-      const grade=k.grade||k.tier||'D';
-      const rd=k.researchData||{};
-      return\`
-      <div class="card p-3 cursor-pointer anim" style="animation-delay:\${i*40}ms" onclick='detail(\${JSON.stringify(k).replace(/'/g,"&#39;")})'>
-        <div class="flex items-center gap-2.5">
-          <div class="ring \${rs>=85?'bg-amber-500/15 text-amber-400':rs>=70?'bg-orange-500/15 text-orange-400':rs>=55?'bg-blue-500/15 text-blue-400':rs>=40?'bg-gray-500/15 text-gray-400':'bg-gray-700/15 text-gray-600'}">\${Math.round(rs)}</div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-1.5 flex-wrap mb-0.5">
-              <span class="text-white font-semibold text-[13px]">\${k.name}</span>
-              <span class="chip tier-\${grade} text-[9px]">\${grade}</span>
-              \${k.profileUrl?\`<a href="\${k.profileUrl}" target="_blank" class="ref" onclick="event.stopPropagation()">프로필</a>\`:''}
-            </div>
-            <p class="text-gray-500 text-[11px] truncate mb-1">\${k.hospital||''} · \${k.department||''} · \${k.position||''}</p>
-            \${rd.openAlex?\`<div class="flex flex-wrap gap-1.5 text-[10px] text-gray-600">
-              <span><i class="fas fa-file-alt text-blue-400"></i> \${rd.openAlex.totalPapers||0}편</span>
-              <span><i class="fas fa-quote-right text-green-400"></i> \${rd.openAlex.totalCitations||0}회</span>
-              <span><i class="fas fa-chart-line text-purple-400"></i> H-index \${rd.openAlex.hIndex||0}</span>
-              \${rd.pubMed?\`<span><i class="fas fa-clock text-yellow-400"></i> 최근5년 \${rd.pubMed.recent5Years||0}편</span>\`:''}
-              \${rd.clinicalTrials?\`<span><i class="fas fa-flask text-cyan-400"></i> 임상시험 \${rd.clinicalTrials.total||0}건</span>\`:''}
-            </div>\`:'<p class="text-gray-600 text-[10px]">연구 데이터 수집 중...</p>'}
+  $('bc').innerHTML=\`<a class="text-purple-400 hover:text-purple-600 cursor-pointer" onclick="goHome()">홈</a> <span class="text-gray-400">›</span> <span class="text-gray-800 font-semibold">\${di.name||DISEASE}</span>\`;
+  
+  $('s2').innerHTML=\`<div class="fade-in">
+    <!-- 질환 정보 카드 -->
+    <div class="card p-6 mb-6">
+      <div class="flex items-start gap-4 mb-4">
+        <div class="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl flex-shrink-0">
+          <i class="fas fa-disease"></i>
+        </div>
+        <div class="flex-1">
+          <h2 class="text-2xl font-bold text-gray-800 mb-1">\${di.name||DISEASE}</h2>
+          <p class="text-purple-600 font-semibold text-sm mb-2">\${di.category||''}</p>
+          <p class="text-gray-700 leading-relaxed">\${di.description||''}</p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            \${(di.specialties||[]).map(s=>\`<span class="tag">\${s}</span>\`).join('')}
           </div>
-          <i class="fas fa-chevron-right text-gray-700 text-xs"></i>
         </div>
       </div>
-    \`}).join('')}
+      <div class="bg-purple-50 rounded-lg p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <i class="fas fa-chart-line text-purple-600"></i>
+          <span class="font-semibold text-gray-800">실시간 연구 데이터 기반 평가</span>
+        </div>
+        <p class="text-gray-600 text-sm">OpenAlex 논문·인용 데이터 + PubMed 최신 연구 + ClinicalTrials.gov 임상시험 데이터를 실시간으로 분석하여 객관적으로 평가했습니다.</p>
+      </div>
+    </div>
+    
+    <!-- 의료진 목록 헤더 -->
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-xl font-bold text-gray-800">연구 실적 상위 전문의 <span class="text-purple-600">\${kols.length}명</span></h3>
+      <span class="text-sm text-gray-500">연구 점수순 정렬</span>
+    </div>
+    
+    <!-- 의료진 카드 목록 -->
+    <div class="space-y-3">
+      \${kols.map((k,i)=>{
+        const rs=k.realScore||k.score||0;
+        const grade=k.grade||k.tier||'D';
+        const rd=k.researchData||{};
+        const badgeClass = rs>=85?'badge-gold':rs>=70?'badge-silver':rs>=55?'badge-bronze':'badge-normal';
+        const scoreClass = rs>=85?'score-S':rs>=70?'score-A':rs>=55?'score-B':rs>=40?'score-C':'score-D';
+        
+        return\`
+        <div class="card p-5 cursor-pointer fade-in hover:shadow-xl transition" style="animation-delay:\${i*50}ms" onclick='detail(\${JSON.stringify(k).replace(/'/g,"&#39;")})'>
+          <div class="flex items-center gap-4">
+            <div class="score-ring \${scoreClass}">
+              \${Math.round(rs)}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-2 flex-wrap">
+                <h4 class="text-lg font-bold text-gray-800">\${k.name} 교수</h4>
+                <span class="badge \${badgeClass}">\${grade}등급</span>
+                \${k.profileUrl?\`<a href="\${k.profileUrl}" target="_blank" class="text-xs text-purple-600 hover:underline" onclick="event.stopPropagation()"><i class="fas fa-external-link-alt mr-1"></i>프로필</a>\`:''}
+              </div>
+              <p class="text-gray-600 mb-3">
+                <i class="fas fa-hospital mr-1 text-purple-500"></i>\${k.hospital||''}
+                <span class="mx-2">·</span>
+                <i class="fas fa-stethoscope mr-1 text-purple-500"></i>\${k.department||''}
+              </p>
+              \${rd.openAlex?\`
+              <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div class="bg-blue-50 rounded-lg p-2 text-center">
+                  <div class="stat-icon bg-blue-100 text-blue-600 mx-auto mb-1"><i class="fas fa-file-alt"></i></div>
+                  <div class="text-lg font-bold text-gray-800">\${(rd.openAlex.totalPapers||0).toLocaleString()}</div>
+                  <div class="text-xs text-gray-600">논문</div>
+                </div>
+                <div class="bg-green-50 rounded-lg p-2 text-center">
+                  <div class="stat-icon bg-green-100 text-green-600 mx-auto mb-1"><i class="fas fa-quote-right"></i></div>
+                  <div class="text-lg font-bold text-gray-800">\${(rd.openAlex.totalCitations||0).toLocaleString()}</div>
+                  <div class="text-xs text-gray-600">인용</div>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-2 text-center">
+                  <div class="stat-icon bg-purple-100 text-purple-600 mx-auto mb-1"><i class="fas fa-chart-line"></i></div>
+                  <div class="text-lg font-bold text-gray-800">\${rd.openAlex.hIndex||0}</div>
+                  <div class="text-xs text-gray-600">H-index</div>
+                </div>
+                \${rd.pubMed?\`
+                <div class="bg-yellow-50 rounded-lg p-2 text-center">
+                  <div class="stat-icon bg-yellow-100 text-yellow-600 mx-auto mb-1"><i class="fas fa-clock"></i></div>
+                  <div class="text-lg font-bold text-gray-800">\${rd.pubMed.recent5Years||0}</div>
+                  <div class="text-xs text-gray-600">최근5년</div>
+                </div>
+                \`:''} 
+                \${rd.clinicalTrials?\`
+                <div class="bg-cyan-50 rounded-lg p-2 text-center">
+                  <div class="stat-icon bg-cyan-100 text-cyan-600 mx-auto mb-1"><i class="fas fa-flask"></i></div>
+                  <div class="text-lg font-bold text-gray-800">\${rd.clinicalTrials.total||0}</div>
+                  <div class="text-xs text-gray-600">임상시험</div>
+                </div>
+                \`:''}
+              </div>
+              \`:\`<p class="text-gray-500 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>연구 데이터 수집 중...</p>\`}
+            </div>
+            <i class="fas fa-chevron-right text-gray-300 text-xl"></i>
+          </div>
+        </div>
+        \`;
+      }).join('')}
+    </div>
+    
+    <!-- 등급 설명 -->
+    <div class="card p-5 mt-6 bg-gray-50">
+      <h4 class="font-bold text-gray-800 mb-3">등급 기준</h4>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
+        <div><span class="badge badge-gold text-xs">S등급</span> <span class="text-gray-600">85점 이상 · 세계적 권위자</span></div>
+        <div><span class="badge badge-silver text-xs">A등급</span> <span class="text-gray-600">70~84점 · 국내 최고 수준</span></div>
+        <div><span class="badge badge-bronze text-xs">B등급</span> <span class="text-gray-600">55~69점 · 우수 연구자</span></div>
+        <div><span class="badge badge-normal text-xs">C등급</span> <span class="text-gray-600">40~54점 · 활발한 연구자</span></div>
+        <div><span class="badge bg-gray-200 text-gray-600 text-xs">D등급</span> <span class="text-gray-600">40점 미만</span></div>
+      </div>
     </div>
   </div>\`;
 }
