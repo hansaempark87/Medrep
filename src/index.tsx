@@ -11,7 +11,7 @@ type Bindings = {
 const app = new Hono<{ Bindings: Bindings }>()
 app.use('/api/*', cors())
 
-app.get('/api/health', (c) => c.json({ status: 'ok', version: '12.0' }))
+app.get('/api/health', (c) => c.json({ status: 'ok', version: '14.0' }))
 
 // ============================================================
 // EXTERNAL API INTEGRATIONS
@@ -166,54 +166,73 @@ interface KolScore {
   grade: 'S' | 'A' | 'B' | 'C' | 'D'
 }
 
-function calculateKolScore(
-  openAlexData: any,
-  pubMedData: any,
-  clinicalTrialsData: any
+// ============================================================
+// SCORING ALGORITHM - 일반인 중심 평가
+// ============================================================
+function calculatePatientCentricScore(
+  kol: KolEntry,
+  diseaseMatch: {isExactMatch: boolean, isCategoryMatch: boolean, matchCount: number}
 ): KolScore {
   const breakdown = {
-    publications: 0,
-    citations: 0,
-    h_index: 0,
-    recent_activity: 0,
-    clinical_trials: 0
+    career: 0,           // 진료 경력 (30점)
+    specialty: 0,        // 전문성/질환 매칭 (30점)
+    leadership: 0,       // 학회 리더십 (25점)
+    hospital: 0,         // 병원 명성 (15점)
+    publications: 0      // 호환성 유지용 (사용안함)
+  }
+
+  // 1. 진료 경력 (30점) - 환자들이 가장 중요시하는 요소
+  const years = kol.careerYears || 15  // 기본값 15년
+  if (years >= 30) breakdown.career = 30
+  else if (years >= 25) breakdown.career = 28
+  else if (years >= 20) breakdown.career = 25
+  else if (years >= 15) breakdown.career = 20
+  else if (years >= 10) breakdown.career = 15
+  else breakdown.career = 10
+  
+  // 2. 전문성/질환 매칭 (30점) - 해당 질환 전문가인가?
+  if (diseaseMatch.isExactMatch) {
+    breakdown.specialty = 30  // 질환명이 태그에 정확히 매칭
+  } else if (diseaseMatch.isCategoryMatch) {
+    breakdown.specialty = 25  // 질환 카테고리 매칭
+  } else if (diseaseMatch.matchCount >= 2) {
+    breakdown.specialty = 20  // 치료영역 2개 이상 매칭
+  } else if (diseaseMatch.matchCount >= 1) {
+    breakdown.specialty = 15  // 치료영역 1개 매칭
+  } else {
+    breakdown.specialty = 5   // 일반 심장내과 등
   }
   
-  // 1. 논문 수 (0-25점) - 로그 스케일 (가중치 감소)
-  if (openAlexData?.total_papers) {
-    breakdown.publications = Math.min(25, Math.log10(openAlexData.total_papers + 1) * 12)
+  // 3. 학회 리더십 (25점) - 학계 인정도
+  let leadershipScore = 0
+  const societiesStr = kol.societies.join(' ')
+  if (societiesStr.includes('회장 역임') || societiesStr.includes('이사장')) {
+    leadershipScore = 25  // 학회 회장
+  } else if (societiesStr.includes('부회장') || societiesStr.includes('학술이사')) {
+    leadershipScore = 20  // 임원진
+  } else if (societiesStr.includes('이사')) {
+    leadershipScore = 15  // 이사
+  } else if (societiesStr.includes('정회원')) {
+    leadershipScore = 10  // 정회원
+  } else {
+    leadershipScore = 5   // 기타
   }
+  breakdown.leadership = leadershipScore
   
-  // 2. 인용수 (0-30점) - 로그 스케일 (가중치 증가)
-  if (openAlexData?.total_citations) {
-    breakdown.citations = Math.min(30, Math.log10(openAlexData.total_citations + 1) * 9)
-  }
-  
-  // 3. H-index (0-30점) - 가장 중요한 지표로 가중치 대폭 증가
-  if (openAlexData?.h_index_estimate) {
-    const hIndex = openAlexData.h_index_estimate;
-    // H-index 40 이상이면 만점, 선형 스케일
-    breakdown.h_index = Math.min(30, (hIndex / 40) * 30)
-  }
-  
-  // 4. 최근 5년 활동 (0-10점) - 가중치 감소
-  if (pubMedData?.recent_5_years) {
-    breakdown.recent_activity = Math.min(10, pubMedData.recent_5_years * 1)
-  }
-  
-  // 5. 임상시험 (0-5점) - 가중치 감소
-  if (clinicalTrialsData?.total_trials) {
-    breakdown.clinical_trials = Math.min(5, clinicalTrialsData.total_trials * 1)
-  }
+  // 4. 병원 명성 (15점) - 환자 접근성 및 병원 신뢰도
+  const tier = kol.hospitalTier || 'A'
+  if (tier === 'S') breakdown.hospital = 15      // 빅5 병원
+  else if (tier === 'A') breakdown.hospital = 12 // 대형병원
+  else breakdown.hospital = 8                    // 일반병원
   
   const total = Object.values(breakdown).reduce((sum, val) => sum + val, 0)
   
-  // 등급 산정 (기준 상향 조정)
+  // 등급 산정
   let grade: 'S' | 'A' | 'B' | 'C' | 'D' = 'D'
-  if (total >= 95) grade = 'S'        // 세계 최고 수준
-  else if (total >= 80) grade = 'A'   // 국내 최고 수준
-  else if (total >= 65) grade = 'B'   // 우수
-  else if (total >= 50) grade = 'C'   // 양호
+  if (total >= 90) grade = 'S'        // 최고 명의
+  else if (total >= 80) grade = 'A'   // 우수 명의
+  else if (total >= 70) grade = 'B'   // 양호
+  else if (total >= 60) grade = 'C'   // 보통
   
   return { total: Math.round(total), breakdown, grade }
 }
@@ -223,7 +242,6 @@ function calculateKolScore(
 // ============================================================
 interface KolEntry {
   name: string
-  nameEn?: string  // 영문 이름 추가 (OpenAlex, PubMed 검색용)
   hospital: string
   department: string
   position: string
@@ -235,13 +253,14 @@ interface KolEntry {
   societies: string[]
   profileUrl?: string
   refs?: {label:string, url:string}[]
+  careerYears: number  // 진료 경력 년수 (필수)
+  hospitalTier: 'S' | 'A' | 'B'  // 병원 등급 (S: 서울대/아산/삼성/세브란스 등 빅5, A: 대형병원, B: 일반병원)
 }
 
 const KOL_DB: KolEntry[] = [
   // === 심혈관/지질대사 ===
   {
     name: "김효수",
-    nameEn: "Hyo-Soo Kim",
     hospital: "서울대학교병원",
     department: "순환기내과",
     position: "교수",
@@ -253,27 +272,29 @@ const KOL_DB: KolEntry[] = [
       {title:"Effect of intracoronary infusion of bone marrow-derived mononuclear cells on LV function in patients with acute MI",journal:"Lancet",year:"2004",url:"https://pubmed.ncbi.nlm.nih.gov/15234398/"}
     ],
     societies: ["대한심장학회 - 회장 역임","한국지질동맥경화학회 - 이사"],
-    profileUrl: "https://www.snuh.org/medical/doctor/detail.do?doctorCode=0001"
+    profileUrl: "https://www.snuh.org/medical/doctor/detail.do?doctorCode=0001",
+    careerYears: 30,
+    hospitalTier: 'S'
   },
   {
     name: "최동훈",
-    nameEn: "Dong-Hoon Choi",
     hospital: "세브란스병원",
     department: "심장내과",
     position: "교수",
-    tags: ["고혈압","대사증후군","이상지질혈증"],
+    tags: ["이상지질혈증","고혈압","대사증후군","죽상동맥경화"],
     therapyAreas: ["심혈관","지질대사","고혈압","스타틴","당뇨합병증"],
     schedule: { mon:{am:"외래",pm:"-"}, tue:{am:"-",pm:"-"}, wed:{am:"-",pm:"외래"}, thu:{am:"-",pm:"-"}, fri:{am:"외래",pm:"-"} },
     publications: [
       {title:"Comparison of effects of pitavastatin and atorvastatin on plaque characteristics in Korean patients with AMI",journal:"Circ J",year:"2018",url:"https://pubmed.ncbi.nlm.nih.gov/29456078/"},
       {title:"Metabolic syndrome and cardiovascular risk in Korean adults",journal:"J Am Coll Cardiol",year:"2010",url:"https://pubmed.ncbi.nlm.nih.gov/20117456/"}
     ],
-    societies: ["대한고혈압학회 - 회장 역임","한국지질동맥경화학회 - 회장 역임"],
-    profileUrl: "https://sev.severance.healthcare/sev/doctor/doctor-view.do"
+    societies: ["한국지질·동맥경화학회 - 이사장 역임 (2021-2022)","대한고혈압학회 - 회장 역임"],
+    profileUrl: "https://sev.severance.healthcare/sev/doctor/doctor-view.do",
+    careerYears: 28,
+    hospitalTier: 'S'
   },
   {
     name: "박성하",
-    nameEn: "Seong-Ha Park",
     hospital: "세브란스병원",
     department: "심장내과",
     position: "교수",
@@ -285,7 +306,26 @@ const KOL_DB: KolEntry[] = [
       {title:"Korean guidelines for the management of dyslipidemia",journal:"J Lipid Atheroscler",year:"2023",url:"https://pubmed.ncbi.nlm.nih.gov/37497051/"}
     ],
     societies: ["한국지질동맥경화학회 - 학술이사","대한심장학회 - 정회원"],
-    profileUrl: "https://sev.severance.healthcare/sev/doctor/doctor-view.do"
+    profileUrl: "https://sev.severance.healthcare/sev/doctor/doctor-view.do",
+    careerYears: 25,
+    hospitalTier: 'S'
+  },
+  {
+    name: "한기훈",
+    hospital: "서울아산병원",
+    department: "심장내과",
+    position: "교수",
+    tags: ["심부전","관상동맥중재술","심장초음파"],
+    therapyAreas: ["심혈관","심부전","관상동맥질환"],
+    schedule: { mon:{am:"외래",pm:"-"}, tue:{am:"-",pm:"시술"}, wed:{am:"-",pm:"-"}, thu:{am:"외래",pm:"-"}, fri:{am:"-",pm:"검사"} },
+    publications: [
+      {title:"Heart failure in Korea: epidemiology and clinical characteristics",journal:"Korean Circ J",year:"2021",url:"https://pubmed.ncbi.nlm.nih.gov/34227260/"},
+      {title:"Temporal trends in burden of heart failure in Korea",journal:"J Card Fail",year:"2020",url:"https://pubmed.ncbi.nlm.nih.gov/32061849/"}
+    ],
+    societies: ["대한심부전학회 - 회장 역임","대한심장학회 - 이사"],
+    profileUrl: "https://www.amc.seoul.kr/asan/doctor/detail.do",
+    careerYears: 27,
+    hospitalTier: 'S'
   },
   {
     name: "한기훈",
@@ -629,130 +669,57 @@ app.post('/api/disease/analyze', async (c) => {
   const result = findKols(disease.trim())
   if (!result) return c.json({error:`'${disease}' 은(는) 아직 DB에 등록되지 않은 질환입니다. 현재 지원: 고콜레스테롤혈증, 이상지질혈증, 제2형당뇨병, 비소세포폐암, 위암, 대장암, 전립선암, 과민성방광, 골다공증, 심부전 등`},404)
   
-  // 실시간 외부 API 데이터로 스코어링 (순차적으로 호출하여 rate limit 방지)
+  // 일반인 중심 스코어링 (외부 API 호출 제거)
   const kolsWithScores = []
   for (const kol of result.kols) {
-    const debugInfo: any = { name: kol.name }
     try {
-      // DB에서 영문 이름 조회
+      // DB에서 전체 정보 조회
       const dbKol = KOL_DB.find(k => k.name === kol.name)
-      const searchName = dbKol?.nameEn || kol.name
-      debugInfo.searchName = searchName
-      
-      // API 키 폴백 (환경변수가 없을 때 기본값 사용)
-      const openAlexKey = c.env.OPENALEX_API_KEY || 'fYbUihvp4sW9jWZqoe8eLo'
-      const pubMedKey = c.env.PUBMED_API_KEY || 'c99e77f35b8b407dcab9b43564ce1a924408'
-      debugInfo.hasOpenAlexKey = !!openAlexKey
-      
-      // OpenAlex 호출 (순차적, 단일 재시도)
-      let openAlexData = await searchOpenAlex(searchName, openAlexKey)
-      
-      // 429 에러 시 한 번만 재시도 (1초 대기)
-      if (openAlexData?.error && openAlexData.error.includes('429')) {
-        console.warn(`OpenAlex rate limit for ${searchName}, retrying in 1s...`)
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        openAlexData = await searchOpenAlex(searchName, openAlexKey)
+      if (!dbKol) {
+        console.warn(`KOL not found in DB: ${kol.name}`)
+        continue
       }
       
-      debugInfo.openAlexSuccess = !!openAlexData
-      debugInfo.openAlexPapers = openAlexData?.total_papers || 0
-      if (openAlexData?.error) {
-        debugInfo.openAlexError = openAlexData.error
-      }
+      // 질환 매칭 정보 계산
+      const diseaseName = result.diseaseInfo.name.toLowerCase()
+      const diseaseCategory = result.diseaseInfo.category.toLowerCase()
       
-      // Rate limit 방지를 위한 KOL 간 지연 (300ms)
-      await new Promise(resolve => setTimeout(resolve, 300))
-      
-      // PubMed와 ClinicalTrials는 선택적 (에러 시 null 반환)
-      let pubMedData = null
-      let clinicalTrialsData = null
-      
-      try {
-        pubMedData = await searchPubMed(searchName, disease, pubMedKey)
-        debugInfo.pubMedSuccess = !!pubMedData
-      } catch (e: any) {
-        console.warn(`PubMed failed for ${searchName}`)
-        debugInfo.pubMedError = e.message
-      }
-      
-      try {
-        clinicalTrialsData = await searchClinicalTrials(searchName)
-        debugInfo.clinicalTrialsSuccess = !!clinicalTrialsData
-      } catch (e: any) {
-        console.warn(`ClinicalTrials failed for ${searchName}`)
-        debugInfo.clinicalTrialsError = e.message
-      }
+      const hasExactMatch = dbKol.tags.some(tag => 
+        tag.toLowerCase() === diseaseName || diseaseName.includes(tag.toLowerCase())
+      )
+      const hasCategoryMatch = dbKol.therapyAreas.some(area => 
+        diseaseCategory.includes(area.toLowerCase()) || area.toLowerCase().includes(diseaseCategory.split('/')[0])
+      )
+      const matchCount = dbKol.therapyAreas.filter(area => 
+        result.diseaseInfo.specialties.some(spec => spec.includes(area.substring(0, 2)))
+      ).length
       
       // 스코어 계산
-      const scoreData = calculateKolScore(openAlexData, pubMedData, clinicalTrialsData)
-      
-      // 질환별 전문성 가산점 (최대 +10점)
-      let specialtyBonus = 0
-      if (dbKol && result.diseaseInfo) {
-        const diseaseName = result.diseaseInfo.name.toLowerCase()
-        const diseaseCategory = result.diseaseInfo.category.toLowerCase()
-        
-        // 1. 태그에 질환명이 포함되어 있으면 +5점
-        const hasDiseasTag = dbKol.tags.some(tag => 
-          diseaseName.includes(tag.toLowerCase()) || tag.toLowerCase().includes(diseaseName)
-        )
-        if (hasDiseasTag) specialtyBonus += 5
-        
-        // 2. 태그에 질환 카테고리가 포함되어 있으면 +3점
-        const hasCategoryTag = dbKol.tags.some(tag => 
-          diseaseCategory.includes(tag.toLowerCase()) || tag.toLowerCase().includes(diseaseCategory.split('/')[0])
-        )
-        if (hasCategoryTag && !hasDiseasTag) specialtyBonus += 3
-        
-        // 3. 학회에 질환 관련 키워드가 있으면 +2점
-        const hasSocietyMatch = dbKol.societies.some(society => 
-          diseaseName.includes(society.toLowerCase()) || society.toLowerCase().includes(diseaseName)
-        )
-        if (hasSocietyMatch && !hasDiseasTag) specialtyBonus += 2
-      }
-      
-      const finalScore = Math.min(100, scoreData.total + specialtyBonus)
-      
-      // 최종 등급 재산정
-      let finalGrade: 'S' | 'A' | 'B' | 'C' | 'D' = 'D'
-      if (finalScore >= 95) finalGrade = 'S'
-      else if (finalScore >= 80) finalGrade = 'A'
-      else if (finalScore >= 65) finalGrade = 'B'
-      else if (finalScore >= 50) finalGrade = 'C'
-      
-      debugInfo.scoreTotal = finalScore
-      debugInfo.specialtyBonus = specialtyBonus
+      const scoreData = calculatePatientCentricScore(dbKol, {
+        isExactMatch: hasExactMatch,
+        isCategoryMatch: hasCategoryMatch,
+        matchCount
+      })
       
       kolsWithScores.push({
         ...kol,
-        realScore: finalScore,
-        grade: finalGrade,
+        realScore: scoreData.total,
+        grade: scoreData.grade,
         scoreBreakdown: scoreData.breakdown,
-        specialtyBonus,
-        _debug: debugInfo,  // 디버그 정보 포함
-        researchData: {
-          openAlex: openAlexData ? {
-            totalPapers: openAlexData.total_papers,
-            totalCitations: openAlexData.total_citations,
-            hIndex: openAlexData.h_index_estimate,
-            topPapers: openAlexData.top_papers.slice(0, 5)
-          } : null,
-          pubMed: pubMedData ? {
-            total: pubMedData.total,
-            recent5Years: pubMedData.recent_5_years,
-            papers: pubMedData.papers.slice(0, 5)
-          } : null,
-          clinicalTrials: clinicalTrialsData ? {
-            total: clinicalTrialsData.total_trials,
-            studies: clinicalTrialsData.studies.slice(0, 3)
-          } : null
+        careerYears: dbKol.careerYears,
+        hospitalTier: dbKol.hospitalTier,
+        _debug: {
+          name: kol.name,
+          careerYears: dbKol.careerYears,
+          hospitalTier: dbKol.hospitalTier,
+          hasExactMatch,
+          hasCategoryMatch,
+          matchCount,
+          scoreTotal: scoreData.total
         }
       })
     } catch (e: any) {
-      // API 실패 시 기본 스코어 유지
-      console.error(`Failed to fetch data for ${kol.name}:`, e)
-      debugInfo.error = e.message
-      kolsWithScores.push({ ...kol, realScore: kol.score, grade: kol.tier, _debug: debugInfo })
+      console.error(`Failed to score ${kol.name}:`, e)
     }
   }
   
