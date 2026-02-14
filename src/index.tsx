@@ -1,17 +1,208 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 
-type Bindings = { OPENAI_API_KEY: string; OPENAI_BASE_URL: string }
+type Bindings = { 
+  OPENAI_API_KEY: string
+  OPENAI_BASE_URL: string
+  OPENALEX_API_KEY?: string
+  PUBMED_API_KEY?: string
+  HIRA_API_KEY_DECODED?: string
+}
 const app = new Hono<{ Bindings: Bindings }>()
 app.use('/api/*', cors())
 
-app.get('/api/health', (c) => c.json({ status: 'ok', version: '10.1' }))
+app.get('/api/health', (c) => c.json({ status: 'ok', version: '12.0' }))
+
+// ============================================================
+// EXTERNAL API INTEGRATIONS
+// ============================================================
+
+// OpenAlex API - 논문 검색 및 인용수
+async function searchOpenAlex(authorName: string, apiKey?: string): Promise<any> {
+  try {
+    const mailto = apiKey ? `&mailto=${apiKey}` : ''
+    // search 파라미터 사용 (filter보다 더 유연함)
+    const url = `https://api.openalex.org/works?search=${encodeURIComponent(authorName)}&per-page=50&sort=cited_by_count:desc${mailto}`
+    const response = await fetch(url)
+    if (!response.ok) return null
+    const data = await response.json()
+    return {
+      total_papers: data.meta?.count || 0,
+      top_papers: data.results?.slice(0, 10).map((work: any) => ({
+        title: work.title,
+        year: work.publication_year,
+        citations: work.cited_by_count || 0,
+        journal: work.primary_location?.source?.display_name || 'Unknown',
+        doi: work.doi,
+        type: work.type
+      })) || [],
+      total_citations: data.results?.reduce((sum: number, work: any) => sum + (work.cited_by_count || 0), 0) || 0,
+      h_index_estimate: calculateHIndex(data.results?.map((w: any) => w.cited_by_count || 0) || [])
+    }
+  } catch (e) {
+    console.error('OpenAlex API Error:', e)
+    return null
+  }
+}
+
+// H-index 계산
+function calculateHIndex(citations: number[]): number {
+  const sorted = citations.sort((a, b) => b - a)
+  let h = 0
+  for (let i = 0; i < sorted.length; i++) {
+    if (sorted[i] >= i + 1) h = i + 1
+    else break
+  }
+  return h
+}
+
+// PubMed API - 최신 연구 활동
+async function searchPubMed(authorName: string, diseaseKeyword: string, apiKey?: string): Promise<any> {
+  try {
+    const apiKeyParam = apiKey ? `&api_key=${apiKey}` : ''
+    // 1. 검색
+    const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(authorName)}[Author]+AND+${encodeURIComponent(diseaseKeyword)}&retmax=100&retmode=json${apiKeyParam}`
+    const searchRes = await fetch(searchUrl)
+    if (!searchRes.ok) return null
+    const searchData = await searchRes.json()
+    const idList = searchData.esearchresult?.idlist || []
+    
+    if (idList.length === 0) return { total: 0, recent_5_years: 0, papers: [] }
+    
+    // 2. 상세 정보 (최대 20개만)
+    const detailIds = idList.slice(0, 20).join(',')
+    const detailUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${detailIds}&retmode=json${apiKeyParam}`
+    const detailRes = await fetch(detailUrl)
+    if (!detailRes.ok) return { total: idList.length, recent_5_years: 0, papers: [] }
+    
+    const contentType = detailRes.headers.get('content-type') || ''
+    if (!contentType.includes('application/json')) {
+      console.warn('PubMed returned non-JSON response')
+      return { total: idList.length, recent_5_years: 0, papers: [] }
+    }
+    
+    const detailData = await detailRes.json()
+    
+    const currentYear = new Date().getFullYear()
+    const papers = idList.slice(0, 20).map((id: string) => {
+      const paper = detailData.result?.[id]
+      if (!paper) return null
+      const year = parseInt(paper.pubdate?.substring(0, 4) || '0')
+      return {
+        pmid: id,
+        title: paper.title || '',
+        year: year,
+        journal: paper.source || '',
+        authors: paper.authors?.map((a: any) => a.name).join(', ') || ''
+      }
+    }).filter((p: any) => p !== null)
+    
+    const recent5Years = papers.filter((p: any) => currentYear - p.year <= 5).length
+    
+    return {
+      total: idList.length,
+      recent_5_years: recent5Years,
+      papers: papers
+    }
+  } catch (e) {
+    console.error('PubMed API Error:', e)
+    return null
+  }
+}
+
+// ClinicalTrials.gov API - 임상시험 참여
+async function searchClinicalTrials(investigatorName: string): Promise<any> {
+  try {
+    const url = `https://clinicaltrials.gov/api/v2/studies?query.term=${encodeURIComponent(investigatorName)}&countTotal=true&pageSize=50`
+    const response = await fetch(url)
+    if (!response.ok) return null
+    const data = await response.json()
+    
+    return {
+      total_trials: data.totalCount || 0,
+      studies: data.studies?.slice(0, 10).map((study: any) => ({
+        nct_id: study.protocolSection?.identificationModule?.nctId,
+        title: study.protocolSection?.identificationModule?.officialTitle || study.protocolSection?.identificationModule?.briefTitle,
+        status: study.protocolSection?.statusModule?.overallStatus,
+        phase: study.protocolSection?.designModule?.phases?.join(', '),
+        conditions: study.protocolSection?.conditionsModule?.conditions?.join(', ')
+      })) || []
+    }
+  } catch (e) {
+    console.error('ClinicalTrials.gov API Error:', e)
+    return null
+  }
+}
+
+// KOL 스코어 계산 (다차원 평가)
+interface KolScore {
+  total: number
+  breakdown: {
+    publications: number      // 논문 수 (0-30점)
+    citations: number          // 인용수 (0-25점)
+    h_index: number            // H-index (0-20점)
+    recent_activity: number    // 최근 5년 활동 (0-15점)
+    clinical_trials: number    // 임상시험 (0-10점)
+  }
+  grade: 'S' | 'A' | 'B' | 'C' | 'D'
+}
+
+function calculateKolScore(
+  openAlexData: any,
+  pubMedData: any,
+  clinicalTrialsData: any
+): KolScore {
+  const breakdown = {
+    publications: 0,
+    citations: 0,
+    h_index: 0,
+    recent_activity: 0,
+    clinical_trials: 0
+  }
+  
+  // 1. 논문 수 (0-30점) - 로그 스케일
+  if (openAlexData?.total_papers) {
+    breakdown.publications = Math.min(30, Math.log10(openAlexData.total_papers + 1) * 15)
+  }
+  
+  // 2. 인용수 (0-25점) - 로그 스케일
+  if (openAlexData?.total_citations) {
+    breakdown.citations = Math.min(25, Math.log10(openAlexData.total_citations + 1) * 8)
+  }
+  
+  // 3. H-index (0-20점) - 선형
+  if (openAlexData?.h_index_estimate) {
+    breakdown.h_index = Math.min(20, openAlexData.h_index_estimate * 2)
+  }
+  
+  // 4. 최근 5년 활동 (0-15점) - 최신성 중요
+  if (pubMedData?.recent_5_years) {
+    breakdown.recent_activity = Math.min(15, pubMedData.recent_5_years * 1.5)
+  }
+  
+  // 5. 임상시험 (0-10점) - 실제 임상 경험
+  if (clinicalTrialsData?.total_trials) {
+    breakdown.clinical_trials = Math.min(10, clinicalTrialsData.total_trials * 2)
+  }
+  
+  const total = Object.values(breakdown).reduce((sum, val) => sum + val, 0)
+  
+  // 등급 산정
+  let grade: 'S' | 'A' | 'B' | 'C' | 'D' = 'D'
+  if (total >= 85) grade = 'S'
+  else if (total >= 70) grade = 'A'
+  else if (total >= 55) grade = 'B'
+  else if (total >= 40) grade = 'C'
+  
+  return { total: Math.round(total), breakdown, grade }
+}
 
 // ============================================================
 // KOL DATABASE — 실제 교수 데이터 (수동 관리)
 // ============================================================
 interface KolEntry {
   name: string
+  nameEn?: string  // 영문 이름 추가 (OpenAlex, PubMed 검색용)
   hospital: string
   department: string
   position: string
@@ -29,6 +220,7 @@ const KOL_DB: KolEntry[] = [
   // === 심혈관/지질대사 ===
   {
     name: "김효수",
+    nameEn: "Hyo-Soo Kim",
     hospital: "서울대학교병원",
     department: "순환기내과",
     position: "교수",
@@ -44,6 +236,7 @@ const KOL_DB: KolEntry[] = [
   },
   {
     name: "최동훈",
+    nameEn: "Dong-Hoon Choi",
     hospital: "세브란스병원",
     department: "심장내과",
     position: "교수",
@@ -59,6 +252,7 @@ const KOL_DB: KolEntry[] = [
   },
   {
     name: "박성하",
+    nameEn: "Seong-Ha Park",
     hospital: "세브란스병원",
     department: "심장내과",
     position: "교수",
@@ -74,6 +268,7 @@ const KOL_DB: KolEntry[] = [
   },
   {
     name: "한기훈",
+    nameEn: "Ki-Hoon Han",
     hospital: "서울아산병원",
     department: "심장내과",
     position: "교수",
@@ -404,14 +599,78 @@ async function ai(env: any, sys: string, msg: string, tokens = 3000) {
 // API Routes
 // ============================================================
 
-// 질환 검색 → DB에서 KOL 목록 반환 (AI 호출 없음, 즉시 응답)
+// 질환 검색 → 실시간 데이터 기반 KOL 스코어링
 app.post('/api/disease/analyze', async (c) => {
   let b: any; try { b = await c.req.json() } catch { return c.json({error:'잘못된 요청'},400) }
   const { disease } = b
   if (!disease || disease.trim().length < 2) return c.json({error:'질환명 2글자 이상'},400)
+  
   const result = findKols(disease.trim())
   if (!result) return c.json({error:`'${disease}' 은(는) 아직 DB에 등록되지 않은 질환입니다. 현재 지원: 고콜레스테롤혈증, 이상지질혈증, 제2형당뇨병, 비소세포폐암, 위암, 대장암, 전립선암, 과민성방광, 골다공증, 심부전 등`},404)
-  return c.json({success:true, data:result})
+  
+  // 실시간 외부 API 데이터로 스코어링 (OpenAlex 우선, 나머지는 선택적)
+  const kolsWithScores = await Promise.all(result.kols.map(async (kol) => {
+    try {
+      // DB에서 영문 이름 조회
+      const dbKol = KOL_DB.find(k => k.name === kol.name)
+      const searchName = dbKol?.nameEn || kol.name
+      
+      // OpenAlex만 필수로 호출 (가장 빠르고 안정적)
+      const openAlexData = await searchOpenAlex(searchName, c.env.OPENALEX_API_KEY)
+      
+      // PubMed와 ClinicalTrials는 선택적 (에러 시 null 반환)
+      let pubMedData = null
+      let clinicalTrialsData = null
+      
+      try {
+        pubMedData = await searchPubMed(searchName, disease, c.env.PUBMED_API_KEY)
+      } catch (e) {
+        console.warn(`PubMed failed for ${searchName}`)
+      }
+      
+      try {
+        clinicalTrialsData = await searchClinicalTrials(searchName)
+      } catch (e) {
+        console.warn(`ClinicalTrials failed for ${searchName}`)
+      }
+      
+      // 스코어 계산
+      const scoreData = calculateKolScore(openAlexData, pubMedData, clinicalTrialsData)
+      
+      return {
+        ...kol,
+        realScore: scoreData.total,
+        grade: scoreData.grade,
+        scoreBreakdown: scoreData.breakdown,
+        researchData: {
+          openAlex: openAlexData ? {
+            totalPapers: openAlexData.total_papers,
+            totalCitations: openAlexData.total_citations,
+            hIndex: openAlexData.h_index_estimate,
+            topPapers: openAlexData.top_papers.slice(0, 5)
+          } : null,
+          pubMed: pubMedData ? {
+            total: pubMedData.total,
+            recent5Years: pubMedData.recent_5_years,
+            papers: pubMedData.papers.slice(0, 5)
+          } : null,
+          clinicalTrials: clinicalTrialsData ? {
+            total: clinicalTrialsData.total_trials,
+            studies: clinicalTrialsData.studies.slice(0, 3)
+          } : null
+        }
+      }
+    } catch (e) {
+      // API 실패 시 기본 스코어 유지
+      console.error(`Failed to fetch data for ${kol.name}:`, e)
+      return { ...kol, realScore: kol.score, grade: kol.tier }
+    }
+  }))
+  
+  // 실제 스코어로 재정렬
+  const sortedKols = kolsWithScores.sort((a, b) => (b.realScore || b.score) - (a.realScore || a.score))
+  
+  return c.json({success:true, data: { ...result, kols: sortedKols }})
 })
 
 // KOL 상세 → DB 정보 + AI 전략 분석
@@ -480,7 +739,7 @@ body{background:#0f172a;color:#e2e8f0;min-height:100vh;margin:0}
 .card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:10px;transition:.15s}
 .card:hover{border-color:rgba(59,130,246,.25)}
 .chip{display:inline-flex;align-items:center;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:500}
-.tier-A{background:#b45309;color:#fef3c7} .tier-B{background:#1d4ed8;color:#dbeafe} .tier-C{background:#4b5563;color:#e5e7eb}
+.tier-S{background:#d97706;color:#fef3c7;font-weight:700} .tier-A{background:#b45309;color:#fef3c7} .tier-B{background:#1d4ed8;color:#dbeafe} .tier-C{background:#4b5563;color:#e5e7eb} .tier-D{background:#374151;color:#9ca3af}
 .anim{animation:up .3s ease-out}
 @keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .skel{background:linear-gradient(90deg,rgba(255,255,255,.03) 25%,rgba(255,255,255,.07) 50%,rgba(255,255,255,.03) 75%);background-size:200% 100%;animation:sh 1.2s infinite}
@@ -501,11 +760,11 @@ body{background:#0f172a;color:#e2e8f0;min-height:100vh;margin:0}
 
 <header class="sticky top-0 z-50 backdrop-blur-xl bg-slate-900/80 border-b border-white/5">
   <div class="max-w-4xl mx-auto px-4 h-11 flex items-center gap-2">
-    <div class="w-6 h-6 rounded bg-blue-600 flex items-center justify-center"><i class="fas fa-stethoscope text-white text-[10px]"></i></div>
-    <span class="font-bold text-white text-sm cursor-pointer" onclick="goHome()">질환별 KOL Targeting</span>
+    <div class="w-6 h-6 rounded bg-blue-600 flex items-center justify-center"><i class="fas fa-microscope text-white text-[10px]"></i></div>
+    <span class="font-bold text-white text-sm cursor-pointer" onclick="goHome()">연구기반 KOL 검색</span>
     <div id="bc" class="text-[11px] text-gray-600 ml-1"></div>
     <div class="flex-1"></div>
-    <span class="text-[9px] text-gray-700">DB v11.0</span>
+    <span class="text-[9px] text-gray-700">v12.0 Research-Driven</span>
   </div>
 </header>
 
@@ -513,8 +772,8 @@ body{background:#0f172a;color:#e2e8f0;min-height:100vh;margin:0}
 
 <div id="s1" class="anim">
   <div class="text-center mt-16 mb-6">
-    <h2 class="text-2xl font-bold text-white mb-1">질환명으로 KOL 찾기</h2>
-    <p class="text-gray-600 text-xs">DB 기반 실제 교수 데이터 · AI 전략 분석</p>
+    <h2 class="text-2xl font-bold text-white mb-1">질환명으로 연구명의 찾기</h2>
+    <p class="text-gray-600 text-xs">실시간 논문·인용·임상시험 데이터 기반 객관적 평가</p>
   </div>
   <div class="max-w-md mx-auto mb-4">
     <div class="relative">
@@ -550,7 +809,7 @@ function ref(url){return url?\`<a href="\${url}" target="_blank" class="ref">Ref
 async function go(){
   const d=$('inp').value.trim();if(!d||d.length<2)return;
   DISEASE=d;
-  $('s2').innerHTML='<div class="text-center mt-8"><div class="inline-block w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><p class="text-gray-600 text-xs mt-2">DB 검색 중...</p></div>';
+  $('s2').innerHTML='<div class="text-center mt-8"><div class="inline-block w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><p class="text-gray-600 text-xs mt-2">실시간 연구 데이터 수집 중...</p><p class="text-gray-700 text-[10px] mt-1">OpenAlex, PubMed, ClinicalTrials 검색</p></div>';
   show(2);
   $('bc').innerHTML=\`<span class="cursor-pointer hover:text-gray-400" onclick="goHome()">홈</span> › \${d}\`;
   try{
@@ -566,7 +825,7 @@ function renderList(data){
   $('bc').innerHTML=\`<span class="cursor-pointer hover:text-gray-400" onclick="goHome()">홈</span> › \${di.name||DISEASE}\`;
   $('s2').innerHTML=\`<div class="anim">
     <div class="flex items-center gap-2 mb-3">
-      <div class="w-7 h-7 rounded bg-blue-600/20 flex items-center justify-center"><i class="fas fa-stethoscope text-blue-400 text-xs"></i></div>
+      <div class="w-7 h-7 rounded bg-blue-600/20 flex items-center justify-center"><i class="fas fa-microscope text-blue-400 text-xs"></i></div>
       <span class="text-white font-semibold text-sm">\${di.name||DISEASE}</span>
       <span class="text-gray-600 text-xs">\${di.category||''}</span>
       <div class="flex-1"></div>
@@ -574,25 +833,39 @@ function renderList(data){
     </div>
     <p class="text-gray-500 text-[11px] mb-1">\${di.description||''}</p>
     <p class="text-gray-600 text-[10px] mb-3">주요 진료과: \${(di.specialties||[]).join(', ')}</p>
-    <div class="text-[11px] text-gray-600 mb-2">KOL \${kols.length}명 · DB 기반 · 관련도순</div>
+    <div class="card p-3 mb-3 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-blue-500/20">
+      <p class="text-blue-300 text-xs mb-1"><i class="fas fa-info-circle mr-1"></i>실시간 연구 데이터 기반 평가</p>
+      <p class="text-gray-400 text-[10px]">OpenAlex 논문·인용 데이터 + PubMed 최신 연구 + ClinicalTrials.gov 임상시험</p>
+    </div>
+    <div class="text-[11px] text-gray-600 mb-2">KOL \${kols.length}명 · 연구 점수순 · 실시간 업데이트</div>
     <div class="space-y-1.5">
-    \${kols.map((k,i)=>\`
+    \${kols.map((k,i)=>{
+      const rs=k.realScore||k.score||0;
+      const grade=k.grade||k.tier||'D';
+      const rd=k.researchData||{};
+      return\`
       <div class="card p-3 cursor-pointer anim" style="animation-delay:\${i*40}ms" onclick='detail(\${JSON.stringify(k).replace(/'/g,"&#39;")})'>
         <div class="flex items-center gap-2.5">
-          <div class="ring \${k.score>=90?'bg-green-500/15 text-green-400':k.score>=85?'bg-yellow-500/15 text-yellow-400':'bg-gray-500/15 text-gray-400'}">\${k.score}</div>
+          <div class="ring \${rs>=85?'bg-amber-500/15 text-amber-400':rs>=70?'bg-orange-500/15 text-orange-400':rs>=55?'bg-blue-500/15 text-blue-400':rs>=40?'bg-gray-500/15 text-gray-400':'bg-gray-700/15 text-gray-600'}">\${Math.round(rs)}</div>
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-1.5 flex-wrap">
+            <div class="flex items-center gap-1.5 flex-wrap mb-0.5">
               <span class="text-white font-semibold text-[13px]">\${k.name}</span>
-              <span class="chip tier-\${k.tier||'C'} text-[9px]">\${k.tier||'?'}</span>
+              <span class="chip tier-\${grade} text-[9px]">\${grade}</span>
               \${k.profileUrl?\`<a href="\${k.profileUrl}" target="_blank" class="ref" onclick="event.stopPropagation()">프로필</a>\`:''}
             </div>
-            <p class="text-gray-500 text-[11px] truncate">\${k.hospital||''} · \${k.department||''} · \${k.position||''}</p>
-            <div class="flex flex-wrap gap-1 mt-0.5">\${(k.tags||[]).slice(0,3).map(t=>\`<span class="tag">\${t}</span>\`).join('')}</div>
+            <p class="text-gray-500 text-[11px] truncate mb-1">\${k.hospital||''} · \${k.department||''} · \${k.position||''}</p>
+            \${rd.openAlex?\`<div class="flex flex-wrap gap-1.5 text-[10px] text-gray-600">
+              <span><i class="fas fa-file-alt text-blue-400"></i> \${rd.openAlex.totalPapers||0}편</span>
+              <span><i class="fas fa-quote-right text-green-400"></i> \${rd.openAlex.totalCitations||0}회</span>
+              <span><i class="fas fa-chart-line text-purple-400"></i> H-index \${rd.openAlex.hIndex||0}</span>
+              \${rd.pubMed?\`<span><i class="fas fa-clock text-yellow-400"></i> 최근5년 \${rd.pubMed.recent5Years||0}편</span>\`:''}
+              \${rd.clinicalTrials?\`<span><i class="fas fa-flask text-cyan-400"></i> 임상시험 \${rd.clinicalTrials.total||0}건</span>\`:''}
+            </div>\`:'<p class="text-gray-600 text-[10px]">연구 데이터 수집 중...</p>'}
           </div>
           <i class="fas fa-chevron-right text-gray-700 text-xs"></i>
         </div>
       </div>
-    \`).join('')}
+    \`}).join('')}
     </div>
   </div>\`;
 }
